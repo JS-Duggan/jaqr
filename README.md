@@ -2,10 +2,10 @@
 
 ## Tools
 
-- CMake
-- Ninja
-- Just
-- C++20 Compiler
+- CMake ([installation guide](https://cmake.org/download/))
+- Ninja ([installation guide](https://github.com/ninja-build/ninja/releases))
+- Just ([installation guide](https://just.systems/man/en/installation.html))
+- C++20 compiler
 - clang-format
 - clang-tidy
 

@@ -1,0 +1,19 @@
+name: Checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Just
+        run: sudo apt-get update && sudo apt-get install -y just
+      - name: Check formatting
+        run: just format-check
+      - name: Run clang-tidy
+        run: just lint
