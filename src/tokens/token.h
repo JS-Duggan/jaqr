@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <functional>
 #include <string>
 
 enum class token_type : std::uint8_t {
