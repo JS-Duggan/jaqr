@@ -1,0 +1,75 @@
+program
+    = { topLevelDeclaration } EOF ;
+
+topLevelDeclaration
+    = globalVariableDeclaration
+    | functionDeclaration
+    | updateFunctionDeclaration
+    | structDeclaration
+    | implDeclaration
+    | invariantDeclaration ;
+
+
+globalVariableDeclaration
+    = "define" variableDeclaration ";" ;
+
+variableDeclaration
+    = "let" binding [ "=" expression ]
+    | "state" binding "=" expression
+    | "imut" [ "state" ] binding "=" expression ;
+
+binding
+    = IDENT ":" type ;
+
+
+type
+    = "->" type
+    | typeName { arrayDimension } ;
+
+typeName
+    = primitiveType
+    | IDENT ;
+
+primitiveType
+    = "int"
+    | "float"
+    | "char"
+    | "bool"
+    | "byte" ;
+
+arrayDimension
+    = "[" expression "]" ;
+
+
+functionDeclaration
+    = "fn" IDENT parameterClause ":" type block ;
+
+updateFunctionDeclaration
+    = "update" "fn" IDENT
+      parameterClause
+      parameterClause
+      block ;
+
+parameterClause
+    = "(" [ parameterList ] ")" ;
+
+parameterList
+    = binding { "," binding } ;
+
+
+structDeclaration
+    = "struct" IDENT "{" { fieldDeclaration } "}" ;
+
+fieldDeclaration
+    = binding ";" ;
+
+
+implDeclaration
+    = "impl" IDENT "{" { methodDeclaration } "}" ;
+
+methodDeclaration
+    = functionDeclaration
+    | updateMethodDeclaration ;
+
+updateMethodDeclaration
+    = "update" "fn" IDENT parameterClause block ;
