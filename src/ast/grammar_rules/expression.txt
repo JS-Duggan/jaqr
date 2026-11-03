@@ -1,0 +1,115 @@
+expression
+    = assignmentExpression ;
+
+
+assignmentExpression
+    = logicalOrExpression [ "=" assignmentExpression ] ;
+
+
+logicalOrExpression
+    = logicalAndExpression
+      { "||" logicalAndExpression } ;
+
+logicalAndExpression
+    = bitwiseOrExpression
+      { "&&" bitwiseOrExpression } ;
+
+
+bitwiseOrExpression
+    = bitwiseXorExpression
+      { "|" bitwiseXorExpression } ;
+
+bitwiseXorExpression
+    = bitwiseAndExpression
+      { "^" bitwiseAndExpression } ;
+
+bitwiseAndExpression
+    = equalityExpression
+      { "&" equalityExpression } ;
+
+
+equalityExpression
+    = relationalExpression
+      { ( "==" | "!=" ) relationalExpression } ;
+
+relationalExpression
+    = additiveExpression
+      { ( "<" | ">" | "<=" | ">=" ) additiveExpression } ;
+
+
+additiveExpression
+    = multiplicativeExpression
+      { ( "+" | "-" ) multiplicativeExpression } ;
+
+multiplicativeExpression
+    = powerExpression
+      { ( "*" | "/" | "\" ) powerExpression } ;
+
+
+powerExpression
+    = unaryExpression [ "~" powerExpression ] ;
+
+unaryExpression
+    = unaryOperator unaryExpression
+    | postfixExpression ;
+
+unaryOperator
+    = "+"
+    | "-"
+    | "!"
+    | "@"
+    | "<-" ;
+
+
+postfixExpression
+    = primaryExpression { postfixSuffix } ;
+
+postfixSuffix
+    = argumentClause
+    | "[" expression "]"
+    | "." IDENT ;
+
+argumentClause
+    = "(" [ argumentList ] ")" ;
+
+argumentList
+    = expression { "," expression } ;
+
+
+primaryExpression
+    = literal
+    | IDENT [ structInitializer ]
+    | "this"
+    | "(" expression ")"
+    | arrayLiteral
+    | conversionExpression
+    | allocationExpression ;
+
+
+literal
+    = INTEGER
+    | FLOAT
+    | CHAR
+    | STRING
+    | "true"
+    | "false" ;
+
+
+arrayLiteral
+    = "[" [ argumentList ] "]" ;
+
+structInitializer
+    = "{" [ fieldInitializerList ] "}" ;
+
+fieldInitializerList
+    = fieldInitializer { "," fieldInitializer } ;
+
+fieldInitializer
+    = IDENT ":" expression ;
+
+
+conversionExpression
+    = primitiveType "(" expression ")" ;
+
+allocationExpression
+    = "new" "(" type "," expression ")" ;

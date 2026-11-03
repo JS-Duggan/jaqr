@@ -1,0 +1,50 @@
+block
+    = "{" { statement } "}" ;
+
+statement
+    = variableDeclaration ";"
+    | expressionStatement
+    | returnStatement
+    | scanStatement
+    | ifStatement
+    | whileStatement
+    | forStatement
+    | stepStatement
+    | invariantDeclaration
+    | block ;
+
+
+expressionStatement
+    = expression ";" ;
+
+returnStatement
+    = "return" expression ";" ;
+
+scanStatement
+    = "scan" ">>" expression { ">>" expression } ";" ;
+
+
+ifStatement
+    = "if" "(" expression ")" block
+      { "elif" "(" expression ")" block }
+      [ "else" block ] ;
+
+whileStatement
+    = "while" "(" expression ")" block ;
+
+forStatement
+    = "for" "("
+        forInitializer ";"
+        expression ";"
+        expression
+      ")" block ;
+
+forInitializer
+    = "let" binding "=" expression ;
+
+
+stepStatement
+    = "step" block [ "reject" block ] ;
+
+invariantDeclaration
+    = "inv" "{" expression "}" ";" ;
