@@ -1071,9 +1071,7 @@ const graph_node colon{token_type::COLON, {}};
 
 const graph_node comma{token_type::COMMA, {}};
 
-} // namespace
-
-const graph_node dfa_start{
+const graph_node start{
     std::nullopt,
     {
         {is<'b'>, &kw_prefix_b},
@@ -1124,3 +1122,7 @@ const graph_node dfa_start{
         {is<','>, &comma},
     },
 };
+
+} // namespace
+
+const graph_node *const dfa_start = &start;

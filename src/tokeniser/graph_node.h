@@ -1,3 +1,4 @@
+#pragma once
 
 #include "../tokens/token.h"
 #include "edge.h"

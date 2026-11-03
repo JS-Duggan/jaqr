@@ -1,6 +1,7 @@
+#pragma once
 
 
-class graph_node;
+struct graph_node;
 
 struct edge {
     bool (*matches)(char);
