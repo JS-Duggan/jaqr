@@ -29,9 +29,6 @@ enum class token_type : std::uint8_t {
     NEW,
     PRINT,
     SCAN,
-    TRUE,
-    FALSE,
-    KEYWORD,
     POINTER, // '->'
 
     // identifier
@@ -52,10 +49,9 @@ enum class token_type : std::uint8_t {
     NOT,              // '!'
     ADDRESS,          // '@'
     DEREFERENCE,      // '<-'
-    POINTER_ACCESS,   // '->'
     ACCESS,           // '.'
-    EQUAL,            // '='
-    ASSIGN,           // '=='
+    EQUAL,            // '=='
+    ASSIGN,           // '='
     NOT_EQUAL,        // '!='
     LESSER,           // '<'
     GREATER,          // '>'
@@ -83,6 +79,9 @@ enum class token_type : std::uint8_t {
     SEMI_COLON,        // ';'
     COLON,             // ':'
     COMMA,             // ','
+
+    WHITESPACE, // Helps with passing - allows me to have an accepting state in the graph for
+                // whitespace
 
     COMMENT // '#'
 };
