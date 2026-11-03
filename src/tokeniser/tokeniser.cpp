@@ -1,7 +1,6 @@
 #include "tokeniser.h"
 #include "dfa.h"
 #include "edge.h"
-#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -88,7 +87,8 @@ std::vector<token> tokenise(const std::vector<std::vector<char>> &input) {
         const graph_node *current_node = dfa_start;
         // exclusive of end
         position last_accepting_end{0, 0};
-        std::optional<token_type> last_accepting_token;
+        token_type last_accepting_token = token_type::WHITESPACE;
+        bool has_last_accepting_token = false;
 
         for (position pos = token_start; pos.line < input.size(); pos = advance(input, pos)) {
             current_node = next_state(current_node, char_at(input, pos));
@@ -100,16 +100,17 @@ std::vector<token> tokenise(const std::vector<std::vector<char>> &input) {
 
             if (current_node->type.has_value()) {
                 last_accepting_end = advance(input, pos);
-                last_accepting_token = current_node->type;
+                last_accepting_token = *current_node->type;
+                has_last_accepting_token = true;
             }
         }
 
-        if (!last_accepting_token.has_value()) {
+        if (has_last_accepting_token) {
+            tokens.push_back(
+                make_token(input, last_accepting_token, token_start, last_accepting_end));
+        } else {
             report_unexpected_char(char_at(input, token_start), token_start.line, token_start.col);
         }
-
-        tokens.push_back(
-            make_token(input, last_accepting_token.value(), token_start, last_accepting_end));
 
         // restart directly after the last token
         token_start = last_accepting_end;
