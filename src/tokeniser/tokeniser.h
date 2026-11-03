@@ -1,8 +1,7 @@
 #pragma once
 
 #include "../tokens/token.h"
-#include "graph_node.h"
-#include <optional>
 #include <vector>
 
-std::vector<token_type> tokenise(std::vector<std::vector<char>>);
+// input is one vector per source line, including '\n'
+std::vector<token> tokenise(const std::vector<std::vector<char>> &input);

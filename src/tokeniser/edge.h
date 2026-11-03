@@ -1,6 +1,5 @@
 #pragma once
 
-
 struct graph_node;
 
 struct edge {

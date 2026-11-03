@@ -59,7 +59,7 @@ enum class token_type : std::uint8_t {
     GREATER,          // '>'
     LESS_OR_EQUAL,    // '<='
     GREATER_OR_EQUAL, // '>='
-    LEFT_SHIT,        // '<<'
+    LEFT_SHIFT,       // '<<'
     RIGHT_SHIFT,      // '>>'
 
     // literals

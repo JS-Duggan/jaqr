@@ -979,7 +979,7 @@ const graph_node dereference{token_type::DEREFERENCE, {}};
 
 const graph_node less_or_equal{token_type::LESS_OR_EQUAL, {}};
 
-const graph_node left_shift{token_type::LEFT_SHIT, {}};
+const graph_node left_shift{token_type::LEFT_SHIFT, {}};
 
 const graph_node greater_or_equal{token_type::GREATER_OR_EQUAL, {}};
 
