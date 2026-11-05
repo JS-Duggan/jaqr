@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <string>
 
@@ -29,9 +31,6 @@ enum class token_type : std::uint8_t {
     NEW,
     PRINT,
     SCAN,
-    TRUE,
-    FALSE,
-    KEYWORD,
     POINTER, // '->'
 
     // identifier
@@ -47,21 +46,20 @@ enum class token_type : std::uint8_t {
     XOR,              // '^'
     BOOL_AND,         // '&'
     BOOL_OR,          // '|'
-    LOGICAL_AND,      // '&&;
+    LOGICAL_AND,      // '&&
     LOGICAL_OR,       // '||'
     NOT,              // '!'
     ADDRESS,          // '@'
     DEREFERENCE,      // '<-'
-    POINTER_ACCESS,   // '->'
     ACCESS,           // '.'
-    EQUAL,            // '='
-    ASSIGN,           // '=='
+    EQUAL,            // '=='
+    ASSIGN,           // '='
     NOT_EQUAL,        // '!='
     LESSER,           // '<'
     GREATER,          // '>'
     LESS_OR_EQUAL,    // '<='
     GREATER_OR_EQUAL, // '>='
-    LEFT_SHIT,        // '<<'
+    LEFT_SHIFT,       // '<<'
     RIGHT_SHIFT,      // '>>'
 
     // literals
@@ -83,6 +81,9 @@ enum class token_type : std::uint8_t {
     SEMI_COLON,        // ';'
     COLON,             // ':'
     COMMA,             // ','
+
+    WHITESPACE, // Helps with parsing - allows me to have an accepting state in the graph for
+                // whitespace
 
     COMMENT // '#'
 };
