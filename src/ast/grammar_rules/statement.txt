@@ -5,6 +5,7 @@ statement
     = variableDeclaration ";"
     | expressionStatement
     | returnStatement
+    | printStatement
     | scanStatement
     | ifStatement
     | whileStatement
@@ -19,6 +20,9 @@ expressionStatement
 
 returnStatement
     = "return" expression ";" ;
+
+printStatement
+    = "print" "(" [ argumentList ] ")" ";" ;
 
 scanStatement
     = "scan" ">>" expression { ">>" expression } ";" ;

@@ -41,8 +41,15 @@ arrayDimension
     = "[" expression "]" ;
 
 
+(* exactly one main per program (checked in semantic analysis).
+   "main" is an IDENTIFIER token with lexeme "main"; the parser checks the
+   lexeme after "fn", so one token of lookahead still picks the branch.
+   main is reserved: it cannot be used as any other identifier. *)
 functionDeclaration
-    = "fn" IDENT parameterClause ":" type block ;
+    = "fn" ( mainSignature | IDENT parameterClause ":" type ) block ;
+
+mainSignature
+    = "main" "(" ")" ;
 
 updateFunctionDeclaration
     = "update" "fn" IDENT
@@ -58,14 +65,14 @@ parameterList
 
 
 structDeclaration
-    = "struct" IDENT "{" { fieldDeclaration } "}" ;
+    = "struct" IDENT "{" { fieldDeclaration } "}" ";" ;
 
 fieldDeclaration
     = binding ";" ;
 
 
 implDeclaration
-    = "impl" IDENT "{" { methodDeclaration } "}" ;
+    = "impl" IDENT "{" { methodDeclaration } "}" ";" ;
 
 methodDeclaration
     = functionDeclaration
