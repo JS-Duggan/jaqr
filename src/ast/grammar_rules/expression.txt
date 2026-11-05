@@ -11,10 +11,21 @@ logicalOrExpression
       { "||" logicalAndExpression } ;
 
 logicalAndExpression
+    = equalityExpression
+      { "&&" equalityExpression } ;
+
+
+equalityExpression
+    = relationalExpression
+      { ( "==" | "!=" ) relationalExpression } ;
+
+(* "<-" directly after an operand is split by the parser into "<" "-", so x<-1 = x < -1 *)
+relationalExpression
     = bitwiseOrExpression
-      { "&&" bitwiseOrExpression } ;
+      { ( "<" | ">" | "<=" | ">=" ) bitwiseOrExpression } ;
 
 
+(* bitwise operators bind tighter than comparisons, so x & 1 == 0 = (x & 1) == 0 *)
 bitwiseOrExpression
     = bitwiseXorExpression
       { "|" bitwiseXorExpression } ;
@@ -24,18 +35,13 @@ bitwiseXorExpression
       { "^" bitwiseAndExpression } ;
 
 bitwiseAndExpression
-    = equalityExpression
-      { "&" equalityExpression } ;
+    = shiftExpression
+      { "&" shiftExpression } ;
 
 
-equalityExpression
-    = relationalExpression
-      { ( "==" | "!=" ) relationalExpression } ;
-
-(* "<-" directly after an operand is split by the parser into "<" "-", so x<-1 = x < -1 *)
-relationalExpression
+shiftExpression
     = additiveExpression
-      { ( "<" | ">" | "<=" | ">=" ) additiveExpression } ;
+      { ( "<<" | ">>" ) additiveExpression } ;
 
 
 additiveExpression
