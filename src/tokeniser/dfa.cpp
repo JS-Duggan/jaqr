@@ -321,7 +321,8 @@ const graph_node char_open{
     std::nullopt,
     edges({
         {is('\\'), &char_escape},
-        {none_of("'\n"), &char_body}, // '' and ''' are errors
+        // '' and ''' are errors
+        {none_of("'\n"), &char_body},
     }),
 };
 
