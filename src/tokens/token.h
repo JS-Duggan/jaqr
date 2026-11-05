@@ -46,7 +46,7 @@ enum class token_type : std::uint8_t {
     XOR,              // '^'
     BOOL_AND,         // '&'
     BOOL_OR,          // '|'
-    LOGICAL_AND,      // '&&;
+    LOGICAL_AND,      // '&&
     LOGICAL_OR,       // '||'
     NOT,              // '!'
     ADDRESS,          // '@'
@@ -82,7 +82,7 @@ enum class token_type : std::uint8_t {
     COLON,             // ':'
     COMMA,             // ','
 
-    WHITESPACE, // Helps with passing - allows me to have an accepting state in the graph for
+    WHITESPACE, // Helps with parsing - allows me to have an accepting state in the graph for
                 // whitespace
 
     COMMENT // '#'

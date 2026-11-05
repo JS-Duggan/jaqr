@@ -6,7 +6,7 @@
 #include <string>
 
 /*
-outline of the tokeniser algorithiim
+outline of the tokeniser algorithm
 
 maximal munch, with no backtracking
 
