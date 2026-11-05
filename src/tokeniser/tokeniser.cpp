@@ -1,7 +1,7 @@
 #include "tokeniser.h"
 #include "dfa.h"
 #include "edge.h"
-#include <sstream>
+#include <format>
 #include <stdexcept>
 #include <string>
 
@@ -32,7 +32,7 @@ struct position {
 static const graph_node *next_state(const graph_node *node, char ch) {
     const graph_node *next = nullptr;
 
-    for (edge outgoing_edge : node->edges) {
+    for (const edge &outgoing_edge : node->edges) {
         if (outgoing_edge.matches(ch)) {
             next = outgoing_edge.to;
             break;
@@ -42,12 +42,13 @@ static const graph_node *next_state(const graph_node *node, char ch) {
     return next;
 }
 
-static char char_at(const std::vector<std::vector<char>> &input, position pos) {
+static char char_at(const std::vector<std::vector<char>> &input, const position &pos) {
     return input[pos.line][pos.col];
 }
 
 // moves pos past the end of its line (and any empty lines) onto the next char
-static position skip_line_ends(const std::vector<std::vector<char>> &input, position pos) {
+static position skip_line_ends(const std::vector<std::vector<char>> &input, const position &start) {
+    position pos = start;
     while (pos.line < input.size() && pos.col >= input[pos.line].size()) {
         pos = {pos.line + 1, 0};
     }
@@ -55,13 +56,13 @@ static position skip_line_ends(const std::vector<std::vector<char>> &input, posi
 }
 
 // the position of the char after pos, which may be on the next line
-static position advance(const std::vector<std::vector<char>> &input, position pos) {
+static position advance(const std::vector<std::vector<char>> &input, const position &pos) {
     return skip_line_ends(input, {pos.line, pos.col + 1});
 }
 
 // builds the token covering [start, end), which may span multiple lines
 static token make_token(const std::vector<std::vector<char>> &input, token_type type,
-                        position start, position end) {
+                        const position &start, const position &end) {
     std::string lexeme;
     for (position pos = start; pos.line != end.line || pos.col != end.col;
          pos = advance(input, pos)) {
@@ -71,12 +72,9 @@ static token make_token(const std::vector<std::vector<char>> &input, token_type 
     return {type, lexeme, static_cast<int>(start.line), static_cast<int>(start.col)};
 }
 
-// TODO: check if this is good code
 [[noreturn]] static void report_unexpected_char(char ch, size_t line, size_t col) {
-    std::ostringstream message;
-    message << "Lexer error: unexpected character '" << ch << "' at line " << line << ", column "
-            << col;
-    throw std::runtime_error(message.str());
+    throw std::runtime_error(
+        std::format("Lexer error: unexpected character '{}' at line {}, column {}", ch, line, col));
 }
 
 std::vector<token> tokenise(const std::vector<std::vector<char>> &input) {
