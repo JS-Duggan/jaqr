@@ -20,6 +20,9 @@ constexpr auto in_range(char lo, char hi) {
 constexpr auto one_of(std::string_view chars) {
     return [chars](char c) { return chars.find(c) != std::string_view::npos; };
 }
+constexpr auto none_of(std::string_view chars) {
+    return [chars](char c) { return chars.find(c) == std::string_view::npos; };
+}
 template <typename... Matchers> constexpr auto any(Matchers... matchers) {
     return [matchers...](char c) { return (matchers(c) || ...); };
 }
@@ -30,6 +33,8 @@ constexpr auto is_binary_digit = one_of("01");
 constexpr auto is_hexadecimal_digit = any(is_digit, in_range('a', 'f'), in_range('A', 'F'));
 constexpr auto is_identifier_char = any(is_letter, is_digit, is('_'));
 constexpr auto is_whitespace = one_of(" \t\n\r");
+// the char after a backslash in a char or string literal: \n \r \t \0 \\ \' \"
+constexpr auto is_escape_char = one_of("nrt0\\'\"");
 
 // ---- edge list builder ----
 // graph_node owns its edges through unique_ptr, which can't be copied out of a brace list,
@@ -44,6 +49,10 @@ std::vector<std::unique_ptr<edge>> edges(std::initializer_list<edge> list) {
 }
 
 // Nodes are defined before anything that points to them.
+
+// The graph is built at startup. Building it only throws if allocation fails, which can't be
+// recovered from, so the check is turned off for the whole graph.
+// NOLINTBEGIN(bugprone-throwing-static-initialization)
 
 // ---- identifiers ----
 
@@ -211,23 +220,62 @@ const graph_node kw_prefix_whi = prefix({{'l', &kw_prefix_whil}});
 const graph_node kw_prefix_wh = prefix({{'i', &kw_prefix_whi}});
 const graph_node kw_prefix_w = prefix({{'h', &kw_prefix_wh}});
 
+// ---- reject ----
+// Following an edge to reject is a lexer error at that char, e.g. the 'a' in 123abc.
+const graph_node reject{std::nullopt, {}};
+
 // ---- numbers ----
+// A digit or letter straight after a number is an error (123abc, 17b, 2b102, 16bfg).
+// The exception is right after the '.', so 5.foo is FLOAT_LITERAL '5.' then IDENTIFIER 'foo'.
 
-const graph_node hexadecimal{token_type::BASE_16_LITERAL, edges({{is_hexadecimal_digit, &hexadecimal}})};
-const graph_node hexadecimal_prefix{std::nullopt, edges({{is_hexadecimal_digit, &hexadecimal}})}; // 16b
+// 16bff14
+const graph_node hexadecimal{
+    token_type::BASE_16_LITERAL,
+    edges({
+        {is_hexadecimal_digit, &hexadecimal},
+        {is_identifier_char, &reject},
+    }),
+};
+const graph_node hexadecimal_prefix{std::nullopt,
+                                    edges({{is_hexadecimal_digit, &hexadecimal}})}; // 16b
 
-const graph_node binary{token_type::BASE_2_LITERAL, edges({{is_binary_digit, &binary}})};
+// 2b100
+const graph_node binary{
+    token_type::BASE_2_LITERAL,
+    edges({
+        {is_binary_digit, &binary},
+        {is_identifier_char, &reject},
+    }),
+};
 const graph_node binary_prefix{std::nullopt, edges({{is_binary_digit, &binary}})}; // 2b
 
-const graph_node float_literal{token_type::FLOAT_LITERAL, edges({{is_digit, &float_literal}})};
+// 1.5 .5 (a second '.' is an error: 1.2.3)
+const graph_node float_fraction{
+    token_type::FLOAT_LITERAL,
+    edges({
+        {is_digit, &float_fraction},
+        {is_identifier_char, &reject},
+        {is('.'), &reject},
+    }),
+};
+// 1. (no edge for letters, so 5.foo ends the float at the '.')
+const graph_node float_dot{
+    token_type::FLOAT_LITERAL,
+    edges({
+        {is_digit, &float_fraction},
+        {is('.'), &reject},
+    }),
+};
 
-const graph_node access{token_type::ACCESS, {}};
+// '.' then a digit is a float: .5
+const graph_node access{token_type::ACCESS, edges({{is_digit, &float_fraction}})};
 
 const graph_node integer{
     token_type::INT_LITERAL,
     edges({
         {is_digit, &integer},
-        {is('.'), &float_literal},
+        {is('.'), &float_dot},
+        {is_identifier_char, &reject},
     }),
 };
 
@@ -236,7 +284,8 @@ const graph_node sixteen{
     edges({
         {is('b'), &hexadecimal_prefix},
         {is_digit, &integer},
-        {is('.'), &float_literal},
+        {is('.'), &float_dot},
+        {is_identifier_char, &reject},
     }),
 };
 
@@ -245,7 +294,8 @@ const graph_node one{
     edges({
         {is('6'), &sixteen},
         {is_digit, &integer},
-        {is('.'), &float_literal},
+        {is('.'), &float_dot},
+        {is_identifier_char, &reject},
     }),
 };
 
@@ -254,22 +304,37 @@ const graph_node two{
     edges({
         {is('b'), &binary_prefix},
         {is_digit, &integer},
-        {is('.'), &float_literal},
+        {is('.'), &float_dot},
+        {is_identifier_char, &reject},
     }),
 };
 
 // ---- char and string literals ----
+// A backslash moves to an escape node, which accepts one escape char and goes back to the body.
+// So an escaped quote is part of the literal instead of closing it.
 
+// exactly one char or one escape between the quotes: 'a' '\n' '\''
 const graph_node char_close{token_type::CHAR_LITERAL, {}};
 const graph_node char_body{std::nullopt, edges({{is('\''), &char_close}})};
-const graph_node char_open{std::nullopt, edges({{is_not('\n'), &char_body}})};
+const graph_node char_escape{std::nullopt, edges({{is_escape_char, &char_body}})};
+const graph_node char_open{
+    std::nullopt,
+    edges({
+        {is('\\'), &char_escape},
+        {none_of("'\n"), &char_body}, // '' and ''' are errors
+    }),
+};
 
+// string_body and string_escape point at each other, so one needs declaring first
 const graph_node string_close{token_type::STRING_LITERAL, {}};
+extern const graph_node string_body;
+const graph_node string_escape{std::nullopt, edges({{is_escape_char, &string_body}})};
 const graph_node string_body{
     std::nullopt,
     edges({
-        {is_not('"'), &string_body},
+        {is('\\'), &string_escape}, // before the catch-all below, which would also match '\'
         {is('"'), &string_close},
+        {is_not('"'), &string_body},
     }),
 };
 
@@ -354,6 +419,7 @@ const graph_node start{
         {is('u'), &kw_prefix_u},
         {is('w'), &kw_prefix_w},
         {is_letter, &identifier},
+        {is('_'), &identifier},
 
         // numbers
         {is('1'), &one},
@@ -396,6 +462,9 @@ const graph_node start{
     }),
 };
 
+// NOLINTEND(bugprone-throwing-static-initialization)
+
 } // namespace
 
 const graph_node *const dfa_start = &start;
+const graph_node *const dfa_reject = &reject;

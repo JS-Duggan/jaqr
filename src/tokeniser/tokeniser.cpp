@@ -8,19 +8,21 @@
 /*
 outline of the tokeniser algorithiim
 
-maximal munch
+maximal munch, with no backtracking
 
 lines keep their '\n', so tokens (e.g. strings) can span lines
 
 starting at line 0, col 0:
     start at start node at token_start
-    follow transitions until a dead state or the end of the input
-        if at accepting state
-            last_accepting_end = position after this char
-            last_token = accepting_state.token
-    if last_token = None, raise error at token_start
-    add token_start..last_accepting_end to the token list
-    restart at the start node with token_start = last_accepting_end
+    follow transitions until the next char has no edge, or the end of the input
+        an edge to the reject node raises an error at that char
+    if stopped in a non-accepting state, raise an error at the char with no edge
+        (or at the end of the input)
+    add token_start..stop to the token list
+    restart at the start node with token_start = stop
+
+stopping in a non-accepting state is always an error, never a fall back to an earlier
+accepting state. so 16b is an error, not INT_LITERAL '16' then IDENTIFIER 'b'.
 */
 
 struct position {
@@ -72,9 +74,33 @@ static token make_token(const std::vector<std::vector<char>> &input, token_type 
     return {type, lexeme, static_cast<int>(start.line), static_cast<int>(start.col)};
 }
 
-[[noreturn]] static void report_unexpected_char(char ch, size_t line, size_t col) {
+// shows '\n', '\t' and '\r' as escapes so they don't break the error message
+static std::string printable(char ch) {
+    switch (ch) {
+    case '\n':
+        return "\\n";
+    case '\t':
+        return "\\t";
+    case '\r':
+        return "\\r";
+    default:
+        return {ch};
+    }
+}
+
+// positions in error messages are 0-indexed
+[[noreturn]] static void report_unexpected_char(char ch, const position &pos) {
     throw std::runtime_error(
-        std::format("Lexer error: unexpected character '{}' at line {}, column {}", ch, line, col));
+        std::format("Lexer error: unexpected character '{}' at line {}, column {}", printable(ch),
+                    pos.line, pos.col));
+}
+
+[[noreturn]] static void report_unexpected_end(const std::vector<std::vector<char>> &input,
+                                               const position &token_start) {
+    throw std::runtime_error(std::format(
+        "Lexer error: unexpected end of input at line {}, column {} (unfinished token starts at "
+        "line {}, column {})",
+        input.size() - 1, input.back().size(), token_start.line, token_start.col));
 }
 
 std::vector<token> tokenise(const std::vector<std::vector<char>> &input) {
@@ -83,35 +109,37 @@ std::vector<token> tokenise(const std::vector<std::vector<char>> &input) {
 
     while (token_start.line < input.size()) {
         const graph_node *current_node = dfa_start;
-        // exclusive of end
-        position last_accepting_end{0, 0};
-        token_type last_accepting_token = token_type::WHITESPACE;
-        bool has_last_accepting_token = false;
+        // exclusive end of the token
+        position pos = token_start;
 
-        for (position pos = token_start; pos.line < input.size(); pos = advance(input, pos)) {
-            current_node = next_state(current_node, char_at(input, pos));
+        while (pos.line < input.size()) {
+            const char ch = char_at(input, pos);
+            const graph_node *next = next_state(current_node, ch);
 
-            // dead state
-            if (current_node == nullptr) {
+            if (next == dfa_reject) {
+                report_unexpected_char(ch, pos);
+            }
+            // no edge for ch, so the token ends before it
+            if (next == nullptr) {
                 break;
             }
 
-            if (current_node->type.has_value()) {
-                last_accepting_end = advance(input, pos);
-                last_accepting_token = *current_node->type;
-                has_last_accepting_token = true;
+            current_node = next;
+            pos = advance(input, pos);
+        }
+
+        const std::optional<token_type> &type = current_node->type;
+        if (!type.has_value()) {
+            if (pos.line < input.size()) {
+                report_unexpected_char(char_at(input, pos), pos);
             }
+            report_unexpected_end(input, token_start);
         }
 
-        if (has_last_accepting_token) {
-            tokens.push_back(
-                make_token(input, last_accepting_token, token_start, last_accepting_end));
-        } else {
-            report_unexpected_char(char_at(input, token_start), token_start.line, token_start.col);
-        }
+        tokens.push_back(make_token(input, *type, token_start, pos));
 
-        // restart directly after the last token
-        token_start = last_accepting_end;
+        // restart directly after the token
+        token_start = pos;
     }
 
     return tokens;
