@@ -1,35 +1,35 @@
 #include "dfa.h"
 
+#include <initializer_list>
+#include <string_view>
+#include <utility>
+
 namespace {
 
-bool is_letter(char c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+// ---- matchers ----
+
+constexpr auto is(char expected) {
+    return [expected](char c) { return c == expected; };
 }
-bool is_digit(char c) {
-    return c >= '0' && c <= '9';
+constexpr auto is_not(char excluded) {
+    return [excluded](char c) { return c != excluded; };
 }
-bool is_binary_digit(char c) {
-    return c == '0' || c == '1';
+constexpr auto in_range(char lo, char hi) {
+    return [lo, hi](char c) { return c >= lo && c <= hi; };
 }
-bool is_hexadecimal_digit(char c) {
-    return is_digit(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+constexpr auto one_of(std::string_view chars) {
+    return [chars](char c) { return chars.find(c) != std::string_view::npos; };
 }
-bool is_identifier_char(char c) {
-    return is_letter(c) || is_digit(c) || c == '_';
-}
-bool is_whitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
-bool not_newline(char c) {
-    return c != '\n';
-}
-bool not_quote(char c) {
-    return c != '"';
+template <typename... Matchers> constexpr auto any(Matchers... matchers) {
+    return [matchers...](char c) { return (matchers(c) || ...); };
 }
 
-template <char C> bool is(char c) {
-    return c == C;
-}
+constexpr auto is_digit = in_range('0', '9');
+constexpr auto is_letter = any(in_range('a', 'z'), in_range('A', 'Z'));
+constexpr auto is_binary_digit = one_of("01");
+constexpr auto is_hexadecimal_digit = any(is_digit, in_range('a', 'f'), in_range('A', 'F'));
+constexpr auto is_identifier_char = any(is_letter, is_digit, is('_'));
+constexpr auto is_whitespace = one_of(" \t\n\r");
 
 // Nodes are defined before anything that points to them.
 
@@ -43,844 +43,171 @@ const graph_node identifier{
 };
 
 // ---- keywords ----
-// one node per prefix, any other identifier char falls back to identifier
+// One node per prefix. Any other identifier char falls back to identifier.
 
-// bool
-const graph_node kw_bool{
-    token_type::BOOL,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
+// A complete keyword.
+graph_node keyword(token_type type) {
+    return {type, {{is_identifier_char, &identifier}}};
+}
 
-const graph_node kw_prefix_boo{
-    token_type::IDENTIFIER,
-    {
-        {is<'l'>, &kw_bool},
-        {is_identifier_char, &identifier},
-    },
-};
+// A partial keyword: an identifier that can continue into one or more keywords.
+graph_node prefix(std::initializer_list<std::pair<char, const graph_node *>> next) {
+    graph_node node{token_type::IDENTIFIER, {}};
+    for (const auto &[ch, to] : next) {
+        node.edges.push_back({is(ch), to});
+    }
+    node.edges.push_back({is_identifier_char, &identifier});
+    return node;
+}
 
-const graph_node kw_prefix_bo{
-    token_type::IDENTIFIER,
-    {
-        {is<'o'>, &kw_prefix_boo},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// byte
-const graph_node kw_byte{
-    token_type::BYTE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_byt{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_byte},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_by{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_prefix_byt},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_b{
-    token_type::IDENTIFIER,
-    {
-        {is<'o'>, &kw_prefix_bo},
-        {is<'y'>, &kw_prefix_by},
-        {is_identifier_char, &identifier},
-    },
-};
+// bool, byte
+const graph_node kw_bool = keyword(token_type::BOOL);
+const graph_node kw_prefix_boo = prefix({{'l', &kw_bool}});
+const graph_node kw_prefix_bo = prefix({{'o', &kw_prefix_boo}});
+const graph_node kw_byte = keyword(token_type::BYTE);
+const graph_node kw_prefix_byt = prefix({{'e', &kw_byte}});
+const graph_node kw_prefix_by = prefix({{'t', &kw_prefix_byt}});
+const graph_node kw_prefix_b = prefix({{'o', &kw_prefix_bo}, {'y', &kw_prefix_by}});
 
 // char
-const graph_node kw_char{
-    token_type::CHAR,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_cha{
-    token_type::IDENTIFIER,
-    {
-        {is<'r'>, &kw_char},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_ch{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_cha},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_c{
-    token_type::IDENTIFIER,
-    {
-        {is<'h'>, &kw_prefix_ch},
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_char = keyword(token_type::CHAR);
+const graph_node kw_prefix_cha = prefix({{'r', &kw_char}});
+const graph_node kw_prefix_ch = prefix({{'a', &kw_prefix_cha}});
+const graph_node kw_prefix_c = prefix({{'h', &kw_prefix_ch}});
 
 // define
-const graph_node kw_define{
-    token_type::DEFINE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_define = keyword(token_type::DEFINE);
+const graph_node kw_prefix_defin = prefix({{'e', &kw_define}});
+const graph_node kw_prefix_defi = prefix({{'n', &kw_prefix_defin}});
+const graph_node kw_prefix_def = prefix({{'i', &kw_prefix_defi}});
+const graph_node kw_prefix_de = prefix({{'f', &kw_prefix_def}});
+const graph_node kw_prefix_d = prefix({{'e', &kw_prefix_de}});
 
-const graph_node kw_prefix_defin{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_define},
-        {is_identifier_char, &identifier},
-    },
-};
+// elif, else
+const graph_node kw_elif = keyword(token_type::ELIF);
+const graph_node kw_prefix_eli = prefix({{'f', &kw_elif}});
+const graph_node kw_else = keyword(token_type::ELSE);
+const graph_node kw_prefix_els = prefix({{'e', &kw_else}});
+const graph_node kw_prefix_el = prefix({{'i', &kw_prefix_eli}, {'s', &kw_prefix_els}});
+const graph_node kw_prefix_e = prefix({{'l', &kw_prefix_el}});
 
-const graph_node kw_prefix_defi{
-    token_type::IDENTIFIER,
-    {
-        {is<'n'>, &kw_prefix_defin},
-        {is_identifier_char, &identifier},
-    },
-};
+// false, float, fn, for
+const graph_node kw_false = keyword(token_type::BOOL_LITERAL);
+const graph_node kw_prefix_fals = prefix({{'e', &kw_false}});
+const graph_node kw_prefix_fal = prefix({{'s', &kw_prefix_fals}});
+const graph_node kw_prefix_fa = prefix({{'l', &kw_prefix_fal}});
+const graph_node kw_float = keyword(token_type::FLOAT);
+const graph_node kw_prefix_floa = prefix({{'t', &kw_float}});
+const graph_node kw_prefix_flo = prefix({{'a', &kw_prefix_floa}});
+const graph_node kw_prefix_fl = prefix({{'o', &kw_prefix_flo}});
+const graph_node kw_fn = keyword(token_type::FN);
+const graph_node kw_for = keyword(token_type::FOR);
+const graph_node kw_prefix_fo = prefix({{'r', &kw_for}});
+const graph_node kw_prefix_f = prefix({
+    {'a', &kw_prefix_fa},
+    {'l', &kw_prefix_fl},
+    {'n', &kw_fn},
+    {'o', &kw_prefix_fo},
+});
 
-const graph_node kw_prefix_def{
-    token_type::IDENTIFIER,
-    {
-        {is<'i'>, &kw_prefix_defi},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_de{
-    token_type::IDENTIFIER,
-    {
-        {is<'f'>, &kw_prefix_def},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_d{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_prefix_de},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// elif
-const graph_node kw_elif{
-    token_type::ELIF,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_eli{
-    token_type::IDENTIFIER,
-    {
-        {is<'f'>, &kw_elif},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// else
-const graph_node kw_else{
-    token_type::ELSE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_els{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_else},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_el{
-    token_type::IDENTIFIER,
-    {
-        {is<'i'>, &kw_prefix_eli},
-        {is<'s'>, &kw_prefix_els},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_e{
-    token_type::IDENTIFIER,
-    {
-        {is<'l'>, &kw_prefix_el},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// false
-const graph_node kw_false{
-    token_type::BOOL_LITERAL,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_fals{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_false},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_fal{
-    token_type::IDENTIFIER,
-    {
-        {is<'s'>, &kw_prefix_fals},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_fa{
-    token_type::IDENTIFIER,
-    {
-        {is<'l'>, &kw_prefix_fal},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// float
-const graph_node kw_float{
-    token_type::FLOAT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_floa{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_float},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_flo{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_floa},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_fl{
-    token_type::IDENTIFIER,
-    {
-        {is<'o'>, &kw_prefix_flo},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// fn
-const graph_node kw_fn{
-    token_type::FN,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-// for
-const graph_node kw_for{
-    token_type::FOR,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_fo{
-    token_type::IDENTIFIER,
-    {
-        {is<'r'>, &kw_for},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_f{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_fa},
-        {is<'l'>, &kw_prefix_fl},
-        {is<'n'>, &kw_fn},
-        {is<'o'>, &kw_prefix_fo},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// if
-const graph_node kw_if{
-    token_type::IF,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-// impl
-const graph_node kw_impl{
-    token_type::IMPL,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_imp{
-    token_type::IDENTIFIER,
-    {
-        {is<'l'>, &kw_impl},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// imut
-const graph_node kw_imut{
-    token_type::IMUT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_imu{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_imut},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_im{
-    token_type::IDENTIFIER,
-    {
-        {is<'p'>, &kw_prefix_imp},
-        {is<'u'>, &kw_prefix_imu},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// int
-const graph_node kw_int{
-    token_type::INT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-// inv
-const graph_node kw_inv{
-    token_type::INV,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_in{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_int},
-        {is<'v'>, &kw_inv},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_i{
-    token_type::IDENTIFIER,
-    {
-        {is<'f'>, &kw_if},
-        {is<'m'>, &kw_prefix_im},
-        {is<'n'>, &kw_prefix_in},
-        {is_identifier_char, &identifier},
-    },
-};
+// if, impl, imut, int, inv
+const graph_node kw_if = keyword(token_type::IF);
+const graph_node kw_impl = keyword(token_type::IMPL);
+const graph_node kw_prefix_imp = prefix({{'l', &kw_impl}});
+const graph_node kw_imut = keyword(token_type::IMUT);
+const graph_node kw_prefix_imu = prefix({{'t', &kw_imut}});
+const graph_node kw_prefix_im = prefix({{'p', &kw_prefix_imp}, {'u', &kw_prefix_imu}});
+const graph_node kw_int = keyword(token_type::INT);
+const graph_node kw_inv = keyword(token_type::INV);
+const graph_node kw_prefix_in = prefix({{'t', &kw_int}, {'v', &kw_inv}});
+const graph_node kw_prefix_i = prefix({
+    {'f', &kw_if},
+    {'m', &kw_prefix_im},
+    {'n', &kw_prefix_in},
+});
 
 // let
-const graph_node kw_let{
-    token_type::LET,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_le{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_let},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_l{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_prefix_le},
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_let = keyword(token_type::LET);
+const graph_node kw_prefix_le = prefix({{'t', &kw_let}});
+const graph_node kw_prefix_l = prefix({{'e', &kw_prefix_le}});
 
 // new
-const graph_node kw_new{
-    token_type::NEW,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_ne{
-    token_type::IDENTIFIER,
-    {
-        {is<'w'>, &kw_new},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_n{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_prefix_ne},
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_new = keyword(token_type::NEW);
+const graph_node kw_prefix_ne = prefix({{'w', &kw_new}});
+const graph_node kw_prefix_n = prefix({{'e', &kw_prefix_ne}});
 
 // print
-const graph_node kw_print{
-    token_type::PRINT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_print = keyword(token_type::PRINT);
+const graph_node kw_prefix_prin = prefix({{'t', &kw_print}});
+const graph_node kw_prefix_pri = prefix({{'n', &kw_prefix_prin}});
+const graph_node kw_prefix_pr = prefix({{'i', &kw_prefix_pri}});
+const graph_node kw_prefix_p = prefix({{'r', &kw_prefix_pr}});
 
-const graph_node kw_prefix_prin{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_print},
-        {is_identifier_char, &identifier},
-    },
-};
+// reject, return
+const graph_node kw_reject = keyword(token_type::REJECT);
+const graph_node kw_prefix_rejec = prefix({{'t', &kw_reject}});
+const graph_node kw_prefix_reje = prefix({{'c', &kw_prefix_rejec}});
+const graph_node kw_prefix_rej = prefix({{'e', &kw_prefix_reje}});
+const graph_node kw_return = keyword(token_type::RETURN);
+const graph_node kw_prefix_retur = prefix({{'n', &kw_return}});
+const graph_node kw_prefix_retu = prefix({{'r', &kw_prefix_retur}});
+const graph_node kw_prefix_ret = prefix({{'u', &kw_prefix_retu}});
+const graph_node kw_prefix_re = prefix({{'j', &kw_prefix_rej}, {'t', &kw_prefix_ret}});
+const graph_node kw_prefix_r = prefix({{'e', &kw_prefix_re}});
 
-const graph_node kw_prefix_pri{
-    token_type::IDENTIFIER,
-    {
-        {is<'n'>, &kw_prefix_prin},
-        {is_identifier_char, &identifier},
-    },
-};
+// scan, state, step, struct
+const graph_node kw_scan = keyword(token_type::SCAN);
+const graph_node kw_prefix_sca = prefix({{'n', &kw_scan}});
+const graph_node kw_prefix_sc = prefix({{'a', &kw_prefix_sca}});
+const graph_node kw_state = keyword(token_type::STATE);
+const graph_node kw_prefix_stat = prefix({{'e', &kw_state}});
+const graph_node kw_prefix_sta = prefix({{'t', &kw_prefix_stat}});
+const graph_node kw_step = keyword(token_type::STEP);
+const graph_node kw_prefix_ste = prefix({{'p', &kw_step}});
+const graph_node kw_struct = keyword(token_type::STRUCT);
+const graph_node kw_prefix_struc = prefix({{'t', &kw_struct}});
+const graph_node kw_prefix_stru = prefix({{'c', &kw_prefix_struc}});
+const graph_node kw_prefix_str = prefix({{'u', &kw_prefix_stru}});
+const graph_node kw_prefix_st = prefix({
+    {'a', &kw_prefix_sta},
+    {'e', &kw_prefix_ste},
+    {'r', &kw_prefix_str},
+});
+const graph_node kw_prefix_s = prefix({{'c', &kw_prefix_sc}, {'t', &kw_prefix_st}});
 
-const graph_node kw_prefix_pr{
-    token_type::IDENTIFIER,
-    {
-        {is<'i'>, &kw_prefix_pri},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_p{
-    token_type::IDENTIFIER,
-    {
-        {is<'r'>, &kw_prefix_pr},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// reject
-const graph_node kw_reject{
-    token_type::REJECT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_rejec{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_reject},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_reje{
-    token_type::IDENTIFIER,
-    {
-        {is<'c'>, &kw_prefix_rejec},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_rej{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_prefix_reje},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// return
-const graph_node kw_return{
-    token_type::RETURN,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_retur{
-    token_type::IDENTIFIER,
-    {
-        {is<'n'>, &kw_return},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_retu{
-    token_type::IDENTIFIER,
-    {
-        {is<'r'>, &kw_prefix_retur},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_ret{
-    token_type::IDENTIFIER,
-    {
-        {is<'u'>, &kw_prefix_retu},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_re{
-    token_type::IDENTIFIER,
-    {
-        {is<'j'>, &kw_prefix_rej},
-        {is<'t'>, &kw_prefix_ret},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_r{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_prefix_re},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// scan
-const graph_node kw_scan{
-    token_type::SCAN,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_sca{
-    token_type::IDENTIFIER,
-    {
-        {is<'n'>, &kw_scan},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_sc{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_sca},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// state
-const graph_node kw_state{
-    token_type::STATE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_stat{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_state},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_sta{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_prefix_stat},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// step
-const graph_node kw_step{
-    token_type::STEP,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_ste{
-    token_type::IDENTIFIER,
-    {
-        {is<'p'>, &kw_step},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// struct
-const graph_node kw_struct{
-    token_type::STRUCT,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_struc{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_struct},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_stru{
-    token_type::IDENTIFIER,
-    {
-        {is<'c'>, &kw_prefix_struc},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_str{
-    token_type::IDENTIFIER,
-    {
-        {is<'u'>, &kw_prefix_stru},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_st{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_sta},
-        {is<'e'>, &kw_prefix_ste},
-        {is<'r'>, &kw_prefix_str},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_s{
-    token_type::IDENTIFIER,
-    {
-        {is<'c'>, &kw_prefix_sc},
-        {is<'t'>, &kw_prefix_st},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// this
-const graph_node kw_this{
-    token_type::THIS,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_thi{
-    token_type::IDENTIFIER,
-    {
-        {is<'s'>, &kw_this},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_th{
-    token_type::IDENTIFIER,
-    {
-        {is<'i'>, &kw_prefix_thi},
-        {is_identifier_char, &identifier},
-    },
-};
-
-// true
-const graph_node kw_true{
-    token_type::BOOL_LITERAL,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_tru{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_true},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_tr{
-    token_type::IDENTIFIER,
-    {
-        {is<'u'>, &kw_prefix_tru},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_t{
-    token_type::IDENTIFIER,
-    {
-        {is<'h'>, &kw_prefix_th},
-        {is<'r'>, &kw_prefix_tr},
-        {is_identifier_char, &identifier},
-    },
-};
+// this, true
+const graph_node kw_this = keyword(token_type::THIS);
+const graph_node kw_prefix_thi = prefix({{'s', &kw_this}});
+const graph_node kw_prefix_th = prefix({{'i', &kw_prefix_thi}});
+const graph_node kw_true = keyword(token_type::BOOL_LITERAL);
+const graph_node kw_prefix_tru = prefix({{'e', &kw_true}});
+const graph_node kw_prefix_tr = prefix({{'u', &kw_prefix_tru}});
+const graph_node kw_prefix_t = prefix({{'h', &kw_prefix_th}, {'r', &kw_prefix_tr}});
 
 // update
-const graph_node kw_update{
-    token_type::UPDATE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_updat{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_update},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_upda{
-    token_type::IDENTIFIER,
-    {
-        {is<'t'>, &kw_prefix_updat},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_upd{
-    token_type::IDENTIFIER,
-    {
-        {is<'a'>, &kw_prefix_upda},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_up{
-    token_type::IDENTIFIER,
-    {
-        {is<'d'>, &kw_prefix_upd},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_u{
-    token_type::IDENTIFIER,
-    {
-        {is<'p'>, &kw_prefix_up},
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_update = keyword(token_type::UPDATE);
+const graph_node kw_prefix_updat = prefix({{'e', &kw_update}});
+const graph_node kw_prefix_upda = prefix({{'t', &kw_prefix_updat}});
+const graph_node kw_prefix_upd = prefix({{'a', &kw_prefix_upda}});
+const graph_node kw_prefix_up = prefix({{'d', &kw_prefix_upd}});
+const graph_node kw_prefix_u = prefix({{'p', &kw_prefix_up}});
 
 // while
-const graph_node kw_while{
-    token_type::WHILE,
-    {
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_whil{
-    token_type::IDENTIFIER,
-    {
-        {is<'e'>, &kw_while},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_whi{
-    token_type::IDENTIFIER,
-    {
-        {is<'l'>, &kw_prefix_whil},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_wh{
-    token_type::IDENTIFIER,
-    {
-        {is<'i'>, &kw_prefix_whi},
-        {is_identifier_char, &identifier},
-    },
-};
-
-const graph_node kw_prefix_w{
-    token_type::IDENTIFIER,
-    {
-        {is<'h'>, &kw_prefix_wh},
-        {is_identifier_char, &identifier},
-    },
-};
+const graph_node kw_while = keyword(token_type::WHILE);
+const graph_node kw_prefix_whil = prefix({{'e', &kw_while}});
+const graph_node kw_prefix_whi = prefix({{'l', &kw_prefix_whil}});
+const graph_node kw_prefix_wh = prefix({{'i', &kw_prefix_whi}});
+const graph_node kw_prefix_w = prefix({{'h', &kw_prefix_wh}});
 
 // ---- numbers ----
 
-const graph_node hexadecimal{
-    token_type::BASE_16_LITERAL,
-    {
-        {is_hexadecimal_digit, &hexadecimal},
-    },
-};
+const graph_node hexadecimal{token_type::BASE_16_LITERAL, {{is_hexadecimal_digit, &hexadecimal}}};
+const graph_node hexadecimal_prefix{std::nullopt, {{is_hexadecimal_digit, &hexadecimal}}}; // 16b
 
-// 16b
-const graph_node hexadecimal_prefix{
-    std::nullopt,
-    {
-        {is_hexadecimal_digit, &hexadecimal},
-    },
-};
+const graph_node binary{token_type::BASE_2_LITERAL, {{is_binary_digit, &binary}}};
+const graph_node binary_prefix{std::nullopt, {{is_binary_digit, &binary}}}; // 2b
 
-const graph_node binary{
-    token_type::BASE_2_LITERAL,
-    {
-        {is_binary_digit, &binary},
-    },
-};
-
-// 2b
-const graph_node binary_prefix{
-    std::nullopt,
-    {
-        {is_binary_digit, &binary},
-    },
-};
-
-const graph_node float_literal{
-    token_type::FLOAT_LITERAL,
-    {
-        {is_digit, &float_literal},
-    },
-};
+const graph_node float_literal{token_type::FLOAT_LITERAL, {{is_digit, &float_literal}}};
 
 const graph_node access{token_type::ACCESS, {}};
 
@@ -888,238 +215,172 @@ const graph_node integer{
     token_type::INT_LITERAL,
     {
         {is_digit, &integer},
-        {is<'.'>, &float_literal},
+        {is('.'), &float_literal},
     },
 };
 
 const graph_node sixteen{
     token_type::INT_LITERAL,
     {
-        {is<'b'>, &hexadecimal_prefix},
+        {is('b'), &hexadecimal_prefix},
         {is_digit, &integer},
-        {is<'.'>, &float_literal},
+        {is('.'), &float_literal},
     },
 };
 
 const graph_node one{
     token_type::INT_LITERAL,
     {
-        {is<'6'>, &sixteen},
+        {is('6'), &sixteen},
         {is_digit, &integer},
-        {is<'.'>, &float_literal},
+        {is('.'), &float_literal},
     },
 };
 
 const graph_node two{
     token_type::INT_LITERAL,
     {
-        {is<'b'>, &binary_prefix},
+        {is('b'), &binary_prefix},
         {is_digit, &integer},
-        {is<'.'>, &float_literal},
+        {is('.'), &float_literal},
     },
 };
 
 // ---- char and string literals ----
 
 const graph_node char_close{token_type::CHAR_LITERAL, {}};
-
-const graph_node char_body{
-    std::nullopt,
-    {
-        {is<'\''>, &char_close},
-    },
-};
-
-const graph_node char_open{
-    std::nullopt,
-    {
-        {not_newline, &char_body},
-    },
-};
+const graph_node char_body{std::nullopt, {{is('\''), &char_close}}};
+const graph_node char_open{std::nullopt, {{is_not('\n'), &char_body}}};
 
 const graph_node string_close{token_type::STRING_LITERAL, {}};
-
 const graph_node string_body{
     std::nullopt,
     {
-        {not_quote, &string_body},
-        {is<'"'>, &string_close},
+        {is_not('"'), &string_body},
+        {is('"'), &string_close},
     },
 };
 
 // ---- comments and whitespace ----
 
-const graph_node comment{
-    token_type::COMMENT,
-    {
-        {not_newline, &comment},
-    },
-};
-
-const graph_node whitespace{
-    token_type::WHITESPACE,
-    {
-        {is_whitespace, &whitespace},
-    },
-};
+const graph_node comment{token_type::COMMENT, {{is_not('\n'), &comment}}};
+const graph_node whitespace{token_type::WHITESPACE, {{is_whitespace, &whitespace}}};
 
 // ---- operators ----
 
 const graph_node pointer{token_type::POINTER, {}};
-
 const graph_node logical_and{token_type::LOGICAL_AND, {}};
-
 const graph_node logical_or{token_type::LOGICAL_OR, {}};
-
 const graph_node not_equal{token_type::NOT_EQUAL, {}};
-
 const graph_node equal{token_type::EQUAL, {}};
-
 const graph_node dereference{token_type::DEREFERENCE, {}};
-
 const graph_node less_or_equal{token_type::LESS_OR_EQUAL, {}};
-
 const graph_node left_shift{token_type::LEFT_SHIFT, {}};
-
 const graph_node greater_or_equal{token_type::GREATER_OR_EQUAL, {}};
-
 const graph_node right_shift{token_type::RIGHT_SHIFT, {}};
-
 const graph_node plus{token_type::PLUS, {}};
-
 const graph_node multiply{token_type::MULTIPLY, {}};
-
 const graph_node divide{token_type::DIVIDE, {}};
-
 const graph_node divide_floor{token_type::DIVIDE_FLOOR, {}};
-
 const graph_node exponent{token_type::EXPONENT, {}};
-
 const graph_node xor_operator{token_type::XOR, {}};
-
 const graph_node address{token_type::ADDRESS, {}};
 
-const graph_node minus{
-    token_type::MINUS,
-    {
-        {is<'>'>, &pointer},
-    },
-};
-
-const graph_node bool_and{
-    token_type::BOOL_AND,
-    {
-        {is<'&'>, &logical_and},
-    },
-};
-
-const graph_node bool_or{
-    token_type::BOOL_OR,
-    {
-        {is<'|'>, &logical_or},
-    },
-};
-
-const graph_node not_operator{
-    token_type::NOT,
-    {
-        {is<'='>, &not_equal},
-    },
-};
-
-const graph_node assign{
-    token_type::ASSIGN,
-    {
-        {is<'='>, &equal},
-    },
-};
+const graph_node minus{token_type::MINUS, {{is('>'), &pointer}}};
+const graph_node bool_and{token_type::BOOL_AND, {{is('&'), &logical_and}}};
+const graph_node bool_or{token_type::BOOL_OR, {{is('|'), &logical_or}}};
+const graph_node not_operator{token_type::NOT, {{is('='), &not_equal}}};
+const graph_node assign{token_type::ASSIGN, {{is('='), &equal}}};
 
 const graph_node lesser{
     token_type::LESSER,
     {
-        {is<'-'>, &dereference},
-        {is<'='>, &less_or_equal},
-        {is<'<'>, &left_shift},
+        {is('-'), &dereference},
+        {is('='), &less_or_equal},
+        {is('<'), &left_shift},
     },
 };
 
 const graph_node greater{
     token_type::GREATER,
     {
-        {is<'='>, &greater_or_equal},
-        {is<'>'>, &right_shift},
+        {is('='), &greater_or_equal},
+        {is('>'), &right_shift},
     },
 };
 
 // ---- punctuators ----
 
 const graph_node curly_open{token_type::CURLY_OPEN, {}};
-
 const graph_node curly_close{token_type::CURLY_CLOSE, {}};
-
 const graph_node parentheses_open{token_type::PARENTHESES_OPEN, {}};
-
 const graph_node parentheses_close{token_type::PARENTHESES_CLOSE, {}};
-
 const graph_node square_open{token_type::SQUARE_OPEN, {}};
-
 const graph_node square_close{token_type::SQUARE_CLOSE, {}};
-
 const graph_node semi_colon{token_type::SEMI_COLON, {}};
-
 const graph_node colon{token_type::COLON, {}};
-
 const graph_node comma{token_type::COMMA, {}};
+
+// ---- start ----
 
 const graph_node start{
     std::nullopt,
     {
-        {is<'b'>, &kw_prefix_b},
-        {is<'c'>, &kw_prefix_c},
-        {is<'d'>, &kw_prefix_d},
-        {is<'e'>, &kw_prefix_e},
-        {is<'f'>, &kw_prefix_f},
-        {is<'i'>, &kw_prefix_i},
-        {is<'l'>, &kw_prefix_l},
-        {is<'n'>, &kw_prefix_n},
-        {is<'p'>, &kw_prefix_p},
-        {is<'r'>, &kw_prefix_r},
-        {is<'s'>, &kw_prefix_s},
-        {is<'t'>, &kw_prefix_t},
-        {is<'u'>, &kw_prefix_u},
-        {is<'w'>, &kw_prefix_w},
+        // keywords
+        {is('b'), &kw_prefix_b},
+        {is('c'), &kw_prefix_c},
+        {is('d'), &kw_prefix_d},
+        {is('e'), &kw_prefix_e},
+        {is('f'), &kw_prefix_f},
+        {is('i'), &kw_prefix_i},
+        {is('l'), &kw_prefix_l},
+        {is('n'), &kw_prefix_n},
+        {is('p'), &kw_prefix_p},
+        {is('r'), &kw_prefix_r},
+        {is('s'), &kw_prefix_s},
+        {is('t'), &kw_prefix_t},
+        {is('u'), &kw_prefix_u},
+        {is('w'), &kw_prefix_w},
         {is_letter, &identifier},
-        {is<'1'>, &one},
-        {is<'2'>, &two},
+
+        // numbers
+        {is('1'), &one},
+        {is('2'), &two},
         {is_digit, &integer},
-        {is<'.'>, &access},
-        {is<'\''>, &char_open},
-        {is<'"'>, &string_body},
-        {is<'#'>, &comment},
+        {is('.'), &access},
+
+        // literals, comments, whitespace
+        {is('\''), &char_open},
+        {is('"'), &string_body},
+        {is('#'), &comment},
         {is_whitespace, &whitespace},
-        {is<'+'>, &plus},
-        {is<'*'>, &multiply},
-        {is<'/'>, &divide},
-        {is<'\\'>, &divide_floor},
-        {is<'~'>, &exponent},
-        {is<'^'>, &xor_operator},
-        {is<'@'>, &address},
-        {is<'-'>, &minus},
-        {is<'&'>, &bool_and},
-        {is<'|'>, &bool_or},
-        {is<'!'>, &not_operator},
-        {is<'='>, &assign},
-        {is<'<'>, &lesser},
-        {is<'>'>, &greater},
-        {is<'{'>, &curly_open},
-        {is<'}'>, &curly_close},
-        {is<'('>, &parentheses_open},
-        {is<')'>, &parentheses_close},
-        {is<'['>, &square_open},
-        {is<']'>, &square_close},
-        {is<';'>, &semi_colon},
-        {is<':'>, &colon},
-        {is<','>, &comma},
+
+        // operators
+        {is('+'), &plus},
+        {is('*'), &multiply},
+        {is('/'), &divide},
+        {is('\\'), &divide_floor},
+        {is('~'), &exponent},
+        {is('^'), &xor_operator},
+        {is('@'), &address},
+        {is('-'), &minus},
+        {is('&'), &bool_and},
+        {is('|'), &bool_or},
+        {is('!'), &not_operator},
+        {is('='), &assign},
+        {is('<'), &lesser},
+        {is('>'), &greater},
+
+        // punctuators
+        {is('{'), &curly_open},
+        {is('}'), &curly_close},
+        {is('('), &parentheses_open},
+        {is(')'), &parentheses_close},
+        {is('['), &square_open},
+        {is(']'), &square_close},
+        {is(';'), &semi_colon},
+        {is(':'), &colon},
+        {is(','), &comma},
     },
 };
 
