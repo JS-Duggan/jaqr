@@ -32,9 +32,9 @@ struct position {
 static const graph_node *next_state(const graph_node *node, char ch) {
     const graph_node *next = nullptr;
 
-    for (const edge &outgoing_edge : node->edges) {
-        if (outgoing_edge.matches(ch)) {
-            next = outgoing_edge.to;
+    for (const std::unique_ptr<edge> &outgoing_edge : node->edges) {
+        if (outgoing_edge->matches(ch)) {
+            next = outgoing_edge->to;
             break;
         }
     }

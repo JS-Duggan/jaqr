@@ -31,15 +31,27 @@ constexpr auto is_hexadecimal_digit = any(is_digit, in_range('a', 'f'), in_range
 constexpr auto is_identifier_char = any(is_letter, is_digit, is('_'));
 constexpr auto is_whitespace = one_of(" \t\n\r");
 
+// ---- edge list builder ----
+// graph_node owns its edges through unique_ptr, which can't be copied out of a brace list,
+// so each edge is copied into its own allocation here.
+std::vector<std::unique_ptr<edge>> edges(std::initializer_list<edge> list) {
+    std::vector<std::unique_ptr<edge>> result;
+    result.reserve(list.size());
+    for (const edge &e : list) {
+        result.push_back(std::make_unique<edge>(e));
+    }
+    return result;
+}
+
 // Nodes are defined before anything that points to them.
 
 // ---- identifiers ----
 
 const graph_node identifier{
     token_type::IDENTIFIER,
-    {
+    edges({
         {is_identifier_char, &identifier},
-    },
+    }),
 };
 
 // ---- keywords ----
@@ -47,16 +59,16 @@ const graph_node identifier{
 
 // A complete keyword.
 graph_node keyword(token_type type) {
-    return {type, {{is_identifier_char, &identifier}}};
+    return {type, edges({{is_identifier_char, &identifier}})};
 }
 
 // A partial keyword: an identifier that can continue into one or more keywords.
 graph_node prefix(std::initializer_list<std::pair<char, const graph_node *>> next) {
     graph_node node{token_type::IDENTIFIER, {}};
     for (const auto &[ch, to] : next) {
-        node.edges.push_back({is(ch), to});
+        node.edges.push_back(std::make_unique<edge>(edge{is(ch), to}));
     }
-    node.edges.push_back({is_identifier_char, &identifier});
+    node.edges.push_back(std::make_unique<edge>(edge{is_identifier_char, &identifier}));
     return node;
 }
 
@@ -201,70 +213,70 @@ const graph_node kw_prefix_w = prefix({{'h', &kw_prefix_wh}});
 
 // ---- numbers ----
 
-const graph_node hexadecimal{token_type::BASE_16_LITERAL, {{is_hexadecimal_digit, &hexadecimal}}};
-const graph_node hexadecimal_prefix{std::nullopt, {{is_hexadecimal_digit, &hexadecimal}}}; // 16b
+const graph_node hexadecimal{token_type::BASE_16_LITERAL, edges({{is_hexadecimal_digit, &hexadecimal}})};
+const graph_node hexadecimal_prefix{std::nullopt, edges({{is_hexadecimal_digit, &hexadecimal}})}; // 16b
 
-const graph_node binary{token_type::BASE_2_LITERAL, {{is_binary_digit, &binary}}};
-const graph_node binary_prefix{std::nullopt, {{is_binary_digit, &binary}}}; // 2b
+const graph_node binary{token_type::BASE_2_LITERAL, edges({{is_binary_digit, &binary}})};
+const graph_node binary_prefix{std::nullopt, edges({{is_binary_digit, &binary}})}; // 2b
 
-const graph_node float_literal{token_type::FLOAT_LITERAL, {{is_digit, &float_literal}}};
+const graph_node float_literal{token_type::FLOAT_LITERAL, edges({{is_digit, &float_literal}})};
 
 const graph_node access{token_type::ACCESS, {}};
 
 const graph_node integer{
     token_type::INT_LITERAL,
-    {
+    edges({
         {is_digit, &integer},
         {is('.'), &float_literal},
-    },
+    }),
 };
 
 const graph_node sixteen{
     token_type::INT_LITERAL,
-    {
+    edges({
         {is('b'), &hexadecimal_prefix},
         {is_digit, &integer},
         {is('.'), &float_literal},
-    },
+    }),
 };
 
 const graph_node one{
     token_type::INT_LITERAL,
-    {
+    edges({
         {is('6'), &sixteen},
         {is_digit, &integer},
         {is('.'), &float_literal},
-    },
+    }),
 };
 
 const graph_node two{
     token_type::INT_LITERAL,
-    {
+    edges({
         {is('b'), &binary_prefix},
         {is_digit, &integer},
         {is('.'), &float_literal},
-    },
+    }),
 };
 
 // ---- char and string literals ----
 
 const graph_node char_close{token_type::CHAR_LITERAL, {}};
-const graph_node char_body{std::nullopt, {{is('\''), &char_close}}};
-const graph_node char_open{std::nullopt, {{is_not('\n'), &char_body}}};
+const graph_node char_body{std::nullopt, edges({{is('\''), &char_close}})};
+const graph_node char_open{std::nullopt, edges({{is_not('\n'), &char_body}})};
 
 const graph_node string_close{token_type::STRING_LITERAL, {}};
 const graph_node string_body{
     std::nullopt,
-    {
+    edges({
         {is_not('"'), &string_body},
         {is('"'), &string_close},
-    },
+    }),
 };
 
 // ---- comments and whitespace ----
 
-const graph_node comment{token_type::COMMENT, {{is_not('\n'), &comment}}};
-const graph_node whitespace{token_type::WHITESPACE, {{is_whitespace, &whitespace}}};
+const graph_node comment{token_type::COMMENT, edges({{is_not('\n'), &comment}})};
+const graph_node whitespace{token_type::WHITESPACE, edges({{is_whitespace, &whitespace}})};
 
 // ---- operators ----
 
@@ -286,27 +298,27 @@ const graph_node exponent{token_type::EXPONENT, {}};
 const graph_node xor_operator{token_type::XOR, {}};
 const graph_node address{token_type::ADDRESS, {}};
 
-const graph_node minus{token_type::MINUS, {{is('>'), &pointer}}};
-const graph_node bool_and{token_type::BOOL_AND, {{is('&'), &logical_and}}};
-const graph_node bool_or{token_type::BOOL_OR, {{is('|'), &logical_or}}};
-const graph_node not_operator{token_type::NOT, {{is('='), &not_equal}}};
-const graph_node assign{token_type::ASSIGN, {{is('='), &equal}}};
+const graph_node minus{token_type::MINUS, edges({{is('>'), &pointer}})};
+const graph_node bool_and{token_type::BOOL_AND, edges({{is('&'), &logical_and}})};
+const graph_node bool_or{token_type::BOOL_OR, edges({{is('|'), &logical_or}})};
+const graph_node not_operator{token_type::NOT, edges({{is('='), &not_equal}})};
+const graph_node assign{token_type::ASSIGN, edges({{is('='), &equal}})};
 
 const graph_node lesser{
     token_type::LESSER,
-    {
+    edges({
         {is('-'), &dereference},
         {is('='), &less_or_equal},
         {is('<'), &left_shift},
-    },
+    }),
 };
 
 const graph_node greater{
     token_type::GREATER,
-    {
+    edges({
         {is('='), &greater_or_equal},
         {is('>'), &right_shift},
-    },
+    }),
 };
 
 // ---- punctuators ----
@@ -325,7 +337,7 @@ const graph_node comma{token_type::COMMA, {}};
 
 const graph_node start{
     std::nullopt,
-    {
+    edges({
         // keywords
         {is('b'), &kw_prefix_b},
         {is('c'), &kw_prefix_c},
@@ -381,7 +393,7 @@ const graph_node start{
         {is(';'), &semi_colon},
         {is(':'), &colon},
         {is(','), &comma},
-    },
+    }),
 };
 
 } // namespace
