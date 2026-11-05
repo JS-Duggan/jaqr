@@ -1,3 +1,6 @@
+(* IDENT is an IDENTIFIER token whose lexeme is not "main".
+   "main" is reserved for the main function and is rejected everywhere else. *)
+
 program
     = { topLevelDeclaration } EOF ;
 
@@ -22,9 +25,13 @@ binding
     = IDENT ":" type ;
 
 
+(* types read left to right:
+   [3]int = array of 3 int, [3]->int = array of 3 pointers to int,
+   ->[3]int = pointer to array of 3 int *)
 type
     = "->" type
-    | typeName { arrayDimension } ;
+    | arrayDimension type
+    | typeName ;
 
 typeName
     = primitiveType
@@ -43,13 +50,15 @@ arrayDimension
 
 (* exactly one main per program (checked in semantic analysis).
    "main" is an IDENTIFIER token with lexeme "main"; the parser checks the
-   lexeme after "fn", so one token of lookahead still picks the branch.
-   main is reserved: it cannot be used as any other identifier. *)
+   lexeme after "fn", so one token of lookahead still picks the branch. *)
 functionDeclaration
-    = "fn" ( mainSignature | IDENT parameterClause ":" type ) block ;
+    = "fn" ( mainSignature | functionSignature ) block ;
 
 mainSignature
     = "main" "(" ")" ;
+
+functionSignature
+    = IDENT parameterClause ":" type ;
 
 updateFunctionDeclaration
     = "update" "fn" IDENT
@@ -75,8 +84,12 @@ implDeclaration
     = "impl" IDENT "{" { methodDeclaration } "}" ";" ;
 
 methodDeclaration
-    = functionDeclaration
+    = methodFunctionDeclaration
     | updateMethodDeclaration ;
+
+(* same as functionDeclaration, but main is not allowed *)
+methodFunctionDeclaration
+    = "fn" functionSignature block ;
 
 updateMethodDeclaration
     = "update" "fn" IDENT parameterClause block ;

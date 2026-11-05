@@ -121,6 +121,18 @@ class Parser {
         advance();
     }
 
+    // true if the current token is the identifier "main" (never consumes)
+    [[nodiscard]] bool check_main() const {
+        return check(token_type::IDENTIFIER) && current().lexeme == "main";
+    }
+
+    // IDENT: consumes an identifier, errors if it is not one or is the reserved name "main"
+    void expect_identifier() {
+        if (!check(token_type::IDENTIFIER) || check_main())
+            report_error_at_current();
+        advance();
+    }
+
     // x<-1 tokenises as IDENTIFIER DEREFERENCE INT, instead of x < -1
     // called when the current token is <- directly after a operand. Meaning its supposed to be <
     // then -
@@ -212,24 +224,28 @@ class Parser {
 
     // binding = IDENT ":" type ;
     void parse_binding() {
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         expect(token_type::COLON);
         parse_type();
     }
 
     // type
     //     = "->" type
-    //     | typeName { arrayDimension } ;
+    //     | arrayDimension type
+    //     | typeName ;
+    // types read left to right: [3]->int = array of 3 pointers to int
     void parse_type() {
         switch (peek().type) {
         case token_type::POINTER:
             advance();
             parse_type();
             break;
+        case token_type::SQUARE_OPEN:
+            parse_array_dimension();
+            parse_type();
+            break;
         default:
             parse_type_name();
-            while (check(token_type::SQUARE_OPEN))
-                parse_array_dimension();
         }
     }
 
@@ -244,7 +260,7 @@ class Parser {
             parse_primitive_type();
             break;
         case token_type::IDENTIFIER:
-            advance();
+            expect_identifier();
             break;
         default:
             report_error_at_current();
@@ -273,34 +289,38 @@ class Parser {
         expect(token_type::SQUARE_CLOSE);
     }
 
-    // functionDeclaration = "fn" ( mainSignature | IDENT parameterClause ":" type ) block ;
+    // functionDeclaration = "fn" ( mainSignature | functionSignature ) block ;
     // "main" is an IDENTIFIER token, so the branch is picked by its lexeme
     void parse_function_declaration() {
         expect(token_type::FN);
-        if (check(token_type::IDENTIFIER) && current().lexeme == "main") {
+        if (check_main())
             parse_main_signature();
-        } else {
-            expect(token_type::IDENTIFIER);
-            parse_parameter_clause();
-            expect(token_type::COLON);
-            parse_type();
-        }
+        else
+            parse_function_signature();
         parse_block();
     }
 
     // mainSignature = "main" "(" ")" ;
     void parse_main_signature() {
-        assert(current().lexeme == "main");
-        expect(token_type::IDENTIFIER); // lexeme already checked to be "main"
+        assert(check_main());
+        advance(); // already checked to be "main"
         expect(token_type::PARENTHESES_OPEN);
         expect(token_type::PARENTHESES_CLOSE);
+    }
+
+    // functionSignature = IDENT parameterClause ":" type ;
+    void parse_function_signature() {
+        expect_identifier();
+        parse_parameter_clause();
+        expect(token_type::COLON);
+        parse_type();
     }
 
     // updateFunctionDeclaration = "update" "fn" IDENT parameterClause parameterClause block ;
     void parse_update_function_declaration() {
         expect(token_type::UPDATE);
         expect(token_type::FN);
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         parse_parameter_clause();
         parse_parameter_clause();
         parse_block();
@@ -324,7 +344,7 @@ class Parser {
     // structDeclaration = "struct" IDENT "{" { fieldDeclaration } "}" ";" ;
     void parse_struct_declaration() {
         expect(token_type::STRUCT);
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         expect(token_type::CURLY_OPEN);
         while (!check(token_type::CURLY_CLOSE))
             parse_field_declaration();
@@ -341,7 +361,7 @@ class Parser {
     // implDeclaration = "impl" IDENT "{" { methodDeclaration } "}" ";" ;
     void parse_impl_declaration() {
         expect(token_type::IMPL);
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         expect(token_type::CURLY_OPEN);
         while (!check(token_type::CURLY_CLOSE))
             parse_method_declaration();
@@ -349,11 +369,11 @@ class Parser {
         expect(token_type::SEMI_COLON);
     }
 
-    // methodDeclaration = functionDeclaration | updateMethodDeclaration ;
+    // methodDeclaration = methodFunctionDeclaration | updateMethodDeclaration ;
     void parse_method_declaration() {
         switch (peek().type) {
         case token_type::FN:
-            parse_function_declaration();
+            parse_method_function_declaration();
             break;
         case token_type::UPDATE:
             parse_update_method_declaration();
@@ -363,11 +383,19 @@ class Parser {
         }
     }
 
+    // methodFunctionDeclaration = "fn" functionSignature block ;
+    // same as functionDeclaration, but main is not allowed
+    void parse_method_function_declaration() {
+        expect(token_type::FN);
+        parse_function_signature();
+        parse_block();
+    }
+
     // updateMethodDeclaration = "update" "fn" IDENT parameterClause block ;
     void parse_update_method_declaration() {
         expect(token_type::UPDATE);
         expect(token_type::FN);
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         parse_parameter_clause();
         parse_block();
     }
@@ -459,13 +487,14 @@ class Parser {
         expect(token_type::SEMI_COLON);
     }
 
-    // scanStatement = "scan" ">>" expression { ">>" expression } ";" ;
+    // scanStatement = "scan" ">>" prefixExpression { ">>" prefixExpression } ";" ;
+    // targets are prefixExpressions so ">>" is not read as a shift: scan >> x >> y
     void parse_scan_statement() {
         expect(token_type::SCAN);
         expect(token_type::RIGHT_SHIFT);
-        parse_expression();
+        parse_prefix_expression();
         while (match(token_type::RIGHT_SHIFT))
-            parse_expression();
+            parse_prefix_expression();
         expect(token_type::SEMI_COLON);
     }
 
@@ -561,31 +590,10 @@ class Parser {
             parse_logical_and_expression();
     }
 
-    // logicalAndExpression = bitwiseOrExpression { "&&" bitwiseOrExpression } ;
+    // logicalAndExpression = equalityExpression { "&&" equalityExpression } ;
     void parse_logical_and_expression() {
-        parse_bitwise_or_expression();
-        while (match(token_type::LOGICAL_AND))
-            parse_bitwise_or_expression();
-    }
-
-    // bitwiseOrExpression = bitwiseXorExpression { "|" bitwiseXorExpression } ;
-    void parse_bitwise_or_expression() {
-        parse_bitwise_xor_expression();
-        while (match(token_type::BIT_OR))
-            parse_bitwise_xor_expression();
-    }
-
-    // bitwiseXorExpression = bitwiseAndExpression { "^" bitwiseAndExpression } ;
-    void parse_bitwise_xor_expression() {
-        parse_bitwise_and_expression();
-        while (match(token_type::XOR))
-            parse_bitwise_and_expression();
-    }
-
-    // bitwiseAndExpression = equalityExpression { "&" equalityExpression } ;
-    void parse_bitwise_and_expression() {
         parse_equality_expression();
-        while (match(token_type::BIT_AND))
+        while (match(token_type::LOGICAL_AND))
             parse_equality_expression();
     }
 
@@ -597,10 +605,10 @@ class Parser {
     }
 
     // relationalExpression
-    //     = additiveExpression { ( "<" | ">" | "<=" | ">=" ) additiveExpression } ;
+    //     = bitwiseOrExpression { ( "<" | ">" | "<=" | ">=" ) bitwiseOrExpression } ;
     // "<-" directly after an operand is split into "<" "-", so x<-1 = x < -1
     void parse_relational_expression() {
-        parse_additive_expression();
+        parse_bitwise_or_expression();
         while (!at_end()) {
             switch (current().type) {
             case token_type::DEREFERENCE:
@@ -615,8 +623,37 @@ class Parser {
             default:
                 return;
             }
-            parse_additive_expression();
+            parse_bitwise_or_expression();
         }
+    }
+
+    // bitwiseOrExpression = bitwiseXorExpression { "|" bitwiseXorExpression } ;
+    // bitwise operators bind tighter than comparisons, so x & 1 == 0 = (x & 1) == 0
+    void parse_bitwise_or_expression() {
+        parse_bitwise_xor_expression();
+        while (match(token_type::BIT_OR))
+            parse_bitwise_xor_expression();
+    }
+
+    // bitwiseXorExpression = bitwiseAndExpression { "^" bitwiseAndExpression } ;
+    void parse_bitwise_xor_expression() {
+        parse_bitwise_and_expression();
+        while (match(token_type::XOR))
+            parse_bitwise_and_expression();
+    }
+
+    // bitwiseAndExpression = shiftExpression { "&" shiftExpression } ;
+    void parse_bitwise_and_expression() {
+        parse_shift_expression();
+        while (match(token_type::BIT_AND))
+            parse_shift_expression();
+    }
+
+    // shiftExpression = additiveExpression { ( "<<" | ">>" ) additiveExpression } ;
+    void parse_shift_expression() {
+        parse_additive_expression();
+        while (match_any({token_type::LEFT_SHIFT, token_type::RIGHT_SHIFT}))
+            parse_additive_expression();
     }
 
     // additiveExpression = multiplicativeExpression { ( "+" | "-" ) multiplicativeExpression } ;
@@ -688,7 +725,7 @@ class Parser {
             break;
         case token_type::ACCESS:
             advance();
-            expect(token_type::IDENTIFIER);
+            expect_identifier();
             break;
         default:
             report_error_at_current();
@@ -730,7 +767,7 @@ class Parser {
             parse_literal();
             break;
         case token_type::IDENTIFIER:
-            advance();
+            expect_identifier();
             if (check(token_type::CURLY_OPEN))
                 parse_struct_initializer();
             break;
@@ -804,7 +841,7 @@ class Parser {
 
     // fieldInitializer = IDENT ":" expression ;
     void parse_field_initializer() {
-        expect(token_type::IDENTIFIER);
+        expect_identifier();
         expect(token_type::COLON);
         parse_expression();
     }

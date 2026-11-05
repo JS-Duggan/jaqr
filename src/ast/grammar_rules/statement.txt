@@ -24,8 +24,9 @@ returnStatement
 printStatement
     = "print" "(" [ argumentList ] ")" ";" ;
 
+(* targets are prefixExpressions so ">>" is not read as a shift: scan >> x >> y *)
 scanStatement
-    = "scan" ">>" expression { ">>" expression } ";" ;
+    = "scan" ">>" prefixExpression { ">>" prefixExpression } ";" ;
 
 
 ifStatement
