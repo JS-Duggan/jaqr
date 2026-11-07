@@ -129,4 +129,12 @@ class SymbolTable {
   }
 };
 
+// Things i need to think about for including later/ see if other people are covering them in their parts:
+// destructor to clean up dynamically allocated scopes
+// A way to retrieve the global scope
+// function signature checking using parameter and return types
+// array dimensions and data structure size calculation
+// Memory address assignment during code generation
+// and where should these be implemented...???
+
 #endif
