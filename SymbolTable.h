@@ -46,14 +46,30 @@ class SymbolTable {
     }
   }
 
+  // a function to check when declaring a variable, if something with that name already exists and not allow shadowing 
+  // if it is already declared, boolean? it either is or isn't declared...
+  bool alreadyDeclared(string name) {
+    // start searching from current scope
+    Scope* scope = currentScope;
 
-  // a function to check when declaring a variable, if something with that name
-  // already exists and not allow shadowing and adding to table if not
+    // continue until global scope checked
+    while (scope != nullptr) {
+
+        // check if scope contains the identifier
+        if (scope->symbols.find(name) != scope->symbols.end()) {
+            // identifier already exists
+            return true;
+        }
+        // move up to the parent scope
+        scope = scope->parent;
+    }
+    //once here, every scope in initial scope's lineage has been checked and identifier has not been declared
+    return false;
+}
+
+  //one for declaring a variable that hasn't already been declared, add to table if not
 
 
-  // one for if it is already declared
-
-  
   // something to look up a symbol, which might be used in that?
   // a function to lookup a symbol to find where it has been used before, go to
   // symbol in table and find in other section of struct (linesUsedIn)?
