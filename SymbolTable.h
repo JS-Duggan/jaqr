@@ -23,6 +23,17 @@ class SymbolTable{
     }
 
     //need to include other functions like creating child scope when entering a new block
+    void enterScope(string name) {
+    //creates a new scope whose parent is the current scope
+    Scope* newScope = new Scope(name, currentScope);
+
+    //add new scope to the current scope's children
+    currentScope->children.push_back(newScope);
+
+    //move into newly created scope, changes where future declarations will be stored
+    currentScope = newScope; 
+}
+
     // or exiting a scope when a block is finished/closed
     //a function to check when declaring a variable, if something with that name already exists and not allow shadowing and adding to table if not
     // one for if it is already declared
