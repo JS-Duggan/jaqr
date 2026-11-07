@@ -116,7 +116,21 @@ class SymbolTable {
   }
 
   // a function to lookup a symbol to find where it has been used before, go to
-  // symbol in table and find in other section of struct (linesUsedIn)?
+  // symbol in table and find in other section of struct (linesUsedIn)
+  bool addLinesUsedIn(string name, int line) {
+    // find symbol using the current scope and its parents
+    Symbol* symbol = lookup(name); //use lookup function declared above to find symbol, so then can update
+
+    // if doesn't exist, hasn't been declared
+    if (symbol == nullptr) {
+      return false;
+    }
+
+    // record line where the identifier was used
+    symbol->linesUsedIn.push_back(line);
+
+    return true;
+  }
 };
 
 #endif
