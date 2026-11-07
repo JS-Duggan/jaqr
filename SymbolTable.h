@@ -22,8 +22,7 @@ class SymbolTable {
     currentScope = root;
   }
 
-  // need to include other functions like creating child scope when entering a
-  // new block
+  // create child scope when entering a new block
   void enterScope(string name) {
     // creates a new scope whose parent is the current scope
     Scope* newScope = new Scope(name, currentScope);
@@ -36,7 +35,7 @@ class SymbolTable {
     currentScope = newScope;
   }
 
-  // or exiting a scope when a block is finished/closed
+  // exiting a scope when a block is finished/closed
   // when finished processing a block, return to its parent
   void exitScope() {
     // cannot exit the global scope because it has no parent
@@ -46,9 +45,8 @@ class SymbolTable {
     }
   }
 
-  // a function to check when declaring a variable, if something with that name
-  // already exists and not allow shadowing if it is already declared, boolean?
-  // it either is or isn't declared...
+  // check when declaring a variable, if something with that name already exists and not allow shadowing if it is already declared
+  // boolean because it either is or isn't declared
   bool alreadyDeclared(string name) {
     // start searching from current scope
     Scope* scope = currentScope;
@@ -68,8 +66,7 @@ class SymbolTable {
     return false;
   }
 
-  // one for declaring a variable that hasn't already been declared, add to
-  // table if not
+  // declaring a variable that hasn't already been declare and add to symbol table if not
   bool declare(Symbol symbol, bool isGlobal = false) {
     // check if this name already exists in current scope or any of its parent
     // scopes with alreadyDeclared function above
@@ -93,7 +90,7 @@ class SymbolTable {
     return true;
   }
 
-  // something to look up a symbol
+  // lookup a symbol in the symbol table
   Symbol* lookup(string name) {
     // start searching in current scope
     Scope* scope = currentScope;
@@ -115,8 +112,7 @@ class SymbolTable {
     return nullptr;
   }
 
-  // a function to lookup a symbol to find where it has been used before, go to
-  // symbol in table and find in other section of struct (linesUsedIn)
+  // lookup a symbol to find where it has been used before (linesUsedIn)
   bool addLinesUsedIn(string name, int line) {
     // find symbol using the current scope and its parents
     Symbol* symbol = lookup(name); //use lookup function declared above to find symbol, so then can update
