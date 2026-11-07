@@ -15,7 +15,7 @@ enum class SymbolKind {
     UPDATE_FUNCTION
 };
 
-
+//a struct which has symbol information components
 struct Symbol {
     //identifier's name
     string name;
