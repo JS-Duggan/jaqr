@@ -36,39 +36,62 @@ class SymbolTable {
     currentScope = newScope;
   }
 
-  //or exiting a scope when a block is finished/closed
-  //when finished processing a block, return to its parent
+  // or exiting a scope when a block is finished/closed
+  // when finished processing a block, return to its parent
   void exitScope() {
-    //cannot exit the global scope because it has no parent
+    // cannot exit the global scope because it has no parent
     if (currentScope->parent != nullptr) {
-      //go back to parent scope
+      // go back to parent scope
       currentScope = currentScope->parent;
     }
   }
 
-  // a function to check when declaring a variable, if something with that name already exists and not allow shadowing 
-  // if it is already declared, boolean? it either is or isn't declared...
+  // a function to check when declaring a variable, if something with that name
+  // already exists and not allow shadowing if it is already declared, boolean?
+  // it either is or isn't declared...
   bool alreadyDeclared(string name) {
     // start searching from current scope
     Scope* scope = currentScope;
 
     // continue until global scope checked
     while (scope != nullptr) {
-
-        // check if scope contains the identifier
-        if (scope->symbols.find(name) != scope->symbols.end()) {
-            // identifier already exists
-            return true;
-        }
-        // move up to the parent scope
-        scope = scope->parent;
+      // check if scope contains the identifier
+      if (scope->symbols.find(name) != scope->symbols.end()) {
+        // identifier already exists
+        return true;
+      }
+      // move up to the parent scope
+      scope = scope->parent;
     }
-    //once here, every scope in initial scope's lineage has been checked and identifier has not been declared
+    // once here, every scope in initial scope's lineage has been checked and
+    // identifier has not been declared
     return false;
-}
+  }
 
-  //one for declaring a variable that hasn't already been declared, add to table if not
+  // one for declaring a variable that hasn't already been declared, add to
+  // table if not
+  bool declare(Symbol symbol, bool isGlobal = false) {
+    // check if this name already exists in current scope or any of its parent
+    // scopes with alreadyDeclared function above
+    if (alreadyDeclared(symbol.name)) {
+      // its either a duplicate declaration or shadowing and end because don't
+      // need to add to symbol table
+      return false;
+    }
 
+    // decide where the symbol should be stored
+    Scope* destination = currentScope;
+
+    // define keyword means the declaration belongs in the global scope
+    if (isGlobal) {
+      destination = root;
+    }
+
+    // insert symbol into selected scope
+    destination->symbols[symbol.name] = symbol;
+
+    return true;
+  }
 
   // something to look up a symbol, which might be used in that?
   // a function to lookup a symbol to find where it has been used before, go to
