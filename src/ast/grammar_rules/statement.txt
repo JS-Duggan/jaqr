@@ -18,8 +18,9 @@ statement
 expressionStatement
     = expression ";" ;
 
+(* the value is optional, so main and update functions can return early: return; *)
 returnStatement
-    = "return" expression ";" ;
+    = "return" [ expression ] ";" ;
 
 printStatement
     = "print" "(" [ argumentList ] ")" ";" ;

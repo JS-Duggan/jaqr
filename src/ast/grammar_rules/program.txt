@@ -60,6 +60,8 @@ mainSignature
 functionSignature
     = IDENT parameterClause ":" type ;
 
+(* the first parameterClause is the state parameters, the second is the non-state parameters.
+   used for both top-level update functions and update methods *)
 updateFunctionDeclaration
     = "update" "fn" IDENT
       parameterClause
@@ -85,11 +87,8 @@ implDeclaration
 
 methodDeclaration
     = methodFunctionDeclaration
-    | updateMethodDeclaration ;
+    | updateFunctionDeclaration ;
 
 (* same as functionDeclaration, but main is not allowed *)
 methodFunctionDeclaration
     = "fn" functionSignature block ;
-
-updateMethodDeclaration
-    = "update" "fn" IDENT parameterClause block ;

@@ -1,2 +1,3 @@
 build/
 CMakeUserPresets.json
+parser_tokeniser_integration_tests/

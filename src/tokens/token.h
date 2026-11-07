@@ -45,7 +45,7 @@ enum class token_type : std::uint8_t {
     XOR,              // '^'
     BIT_AND,          // '&'
     BIT_OR,           // '|'
-    LOGICAL_AND,      // '&&
+    LOGICAL_AND,      // '&&'
     LOGICAL_OR,       // '||'
     NOT,              // '!'
     ADDRESS,          // '@'

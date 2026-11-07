@@ -12,8 +12,8 @@ class Parser {
     explicit Parser(const std::vector<token> &tokens) : tokens(tokens), cur_index(0) {
         skip_trivia(); // the first token could be whitespace or a comment
     }
-    // TODO: this will return a constructed AST once the AST is done. for now it just checks if
-    // correct
+    // TODO: this will return a constructed AST once the AST is done. for now it only checks that
+    // the tokens follow the grammar
     void parse() {
         parse_program();
     }
@@ -77,7 +77,6 @@ class Parser {
     }
 
     // the current token, errors at the end of input. for choosing a branch with a switch
-
     [[nodiscard]] const token &peek() const {
         if (at_end())
             report_unexpected_end();
@@ -89,7 +88,7 @@ class Parser {
         return !at_end() && current().type == type;
     }
 
-    //  true if the current token is any of the given types (never consumes)
+    // true if the current token is any of the given types (never consumes)
     [[nodiscard]] bool check_any(const std::initializer_list<token_type> &types) const {
         for (const token_type &type : types) {
             if (check(type))
@@ -133,9 +132,8 @@ class Parser {
         advance();
     }
 
-    // x<-1 tokenises as IDENTIFIER DEREFERENCE INT, instead of x < -1
-    // called when the current token is <- directly after a operand. Meaning its supposed to be <
-    // then -
+    // x<-1 tokenises as IDENTIFIER DEREFERENCE INT_LITERAL, but means x < -1.
+    // called when the current token is <- directly after an operand, where it must mean < then -
     void split_dereference() {
         const token &dereference = current();
         token minus{token_type::MINUS, "-", dereference.line, dereference.column + 1};
@@ -317,6 +315,8 @@ class Parser {
     }
 
     // updateFunctionDeclaration = "update" "fn" IDENT parameterClause parameterClause block ;
+    // first clause is the state parameters, second is the non-state parameters.
+    // used for both top-level update functions and update methods
     void parse_update_function_declaration() {
         expect(token_type::UPDATE);
         expect(token_type::FN);
@@ -369,14 +369,14 @@ class Parser {
         expect(token_type::SEMI_COLON);
     }
 
-    // methodDeclaration = methodFunctionDeclaration | updateMethodDeclaration ;
+    // methodDeclaration = methodFunctionDeclaration | updateFunctionDeclaration ;
     void parse_method_declaration() {
         switch (peek().type) {
         case token_type::FN:
             parse_method_function_declaration();
             break;
         case token_type::UPDATE:
-            parse_update_method_declaration();
+            parse_update_function_declaration();
             break;
         default:
             report_error_at_current();
@@ -388,15 +388,6 @@ class Parser {
     void parse_method_function_declaration() {
         expect(token_type::FN);
         parse_function_signature();
-        parse_block();
-    }
-
-    // updateMethodDeclaration = "update" "fn" IDENT parameterClause block ;
-    void parse_update_method_declaration() {
-        expect(token_type::UPDATE);
-        expect(token_type::FN);
-        expect_identifier();
-        parse_parameter_clause();
         parse_block();
     }
 
@@ -470,10 +461,11 @@ class Parser {
         expect(token_type::SEMI_COLON);
     }
 
-    // returnStatement = "return" expression ";" ;
+    // returnStatement = "return" [ expression ] ";" ;
     void parse_return_statement() {
         expect(token_type::RETURN);
-        parse_expression();
+        if (!check(token_type::SEMI_COLON))
+            parse_expression();
         expect(token_type::SEMI_COLON);
     }
 
