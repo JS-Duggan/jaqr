@@ -93,7 +93,28 @@ class SymbolTable {
     return true;
   }
 
-  // something to look up a symbol, which might be used in that?
+  // something to look up a symbol
+  Symbol* lookup(string name) {
+    // start searching in current scope
+    Scope* scope = currentScope;
+
+    // keep searching until root reached
+    while (scope != nullptr) {
+      // try to find the identifier in scope
+      auto it = scope->symbols.find(name);
+
+      // if it exists, return a pointer to its symbol
+      if (it != scope->symbols.end()) {
+        return &it->second;
+      }
+      // if it wasn't found, search the parent scope
+      scope = scope->parent;
+    }
+
+    // identifier wasn't declared in any parent or current scopes
+    return nullptr;
+  }
+
   // a function to lookup a symbol to find where it has been used before, go to
   // symbol in table and find in other section of struct (linesUsedIn)?
 };
