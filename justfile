@@ -22,11 +22,23 @@ format-check:
 lint: configure
     #!/bin/sh
     set -eu
+    if command -v clang-tidy >/dev/null 2>&1; then
+        tidy_executable="$(command -v clang-tidy)"
+    elif command -v brew >/dev/null 2>&1; then
+        tidy_executable="$(brew --prefix llvm)/bin/clang-tidy"
+    else
+        echo "clang-tidy was not found. Install LLVM and add its bin directory to PATH." >&2
+        exit 1
+    fi
+    if [ ! -x "$tidy_executable" ]; then
+        echo "clang-tidy was not found at $tidy_executable. Install it with: brew install llvm" >&2
+        exit 1
+    fi
     if command -v xcrun >/dev/null 2>&1; then
         SDKROOT="${SDKROOT:-$(xcrun --show-sdk-path)}"
         export SDKROOT
     fi
-    find src -type f -name '*.cpp' -exec clang-tidy -p build/debug {} +
+    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {} +
 
 clean:
     cmake -E rm -rf build
