@@ -1,11 +1,15 @@
 #pragma once
 
+#include "source.h"
+
 #include <memory>
 #include <utility>
 #include <vector>
 
 struct stmt {
     virtual ~stmt() = default;
+
+    source_span source;
 };
 
 using stmt_ptr = std::unique_ptr<stmt>;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "expression_base.h"
+#include "source.h"
 #include "statement_base.h"
 #include "type.h"
 
@@ -12,6 +13,8 @@
 
 struct decl {
     virtual ~decl() = default;
+
+    source_span source;
 };
 
 using decl_ptr = std::unique_ptr<decl>;
