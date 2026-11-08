@@ -37,7 +37,8 @@ struct binary_expr : expr {
     expr_ptr left, right;
 
     binary_expr(binary_op o, expr_ptr lhs, expr_ptr rhs)
-        : operation(o), left(std::move(lhs)), right(std::move(rhs)) {};
+        : operation(o), left(std::move(lhs)), right(std::move(rhs)) {
+    }
 };
 
 enum class unary_op : std::uint8_t { NEGATE, DEREFERENCE, ADDRESS, LOGICAL_NOT };
@@ -46,7 +47,8 @@ struct unary_expr : expr {
     unary_op operation;
     expr_ptr right;
 
-    unary_expr(unary_op o, expr_ptr rhs) : operation(o), right(std::move(rhs)) {};
+    unary_expr(unary_op o, expr_ptr rhs) : operation(o), right(std::move(rhs)) {
+    }
 };
 
 using arg_list = std::vector<expr_ptr>;
@@ -93,24 +95,28 @@ using literal_val = std::variant<std::int32_t, std::byte, std::string, float, un
 struct literal : expr {
     literal_val value;
 
-    literal(literal_val v) : value(v) {};
+    literal(literal_val v) : value(v) {
+    }
 };
 
 struct variable : expr {
     std::string lexeme;
-    variable(std::string &l) : lexeme(l) {};
+    variable(std::string &l) : lexeme(l) {
+    }
 };
 
 struct assignment_expr : expr {
     expr_ptr target, value;
 
-    assignment_expr(expr_ptr lhs, expr_ptr rhs) : target(std::move(lhs)), value(std::move(rhs)) {};
+    assignment_expr(expr_ptr lhs, expr_ptr rhs) : target(std::move(lhs)), value(std::move(rhs)) {
+    }
 };
 
 struct array_literal : expr {
     arg_list elements;
 
-    array_literal(arg_list e) : elements(std::move(e)) {};
+    array_literal(arg_list e) : elements(std::move(e)) {
+    }
 };
 
 struct field_init {
@@ -123,7 +129,8 @@ struct struct_literal : expr {
     std::vector<field_init> init_list;
 
     struct_literal(std::string st, std::vector<field_init> il)
-        : struct_type(std::move(st)), init_list(std::move(il)) {};
+        : struct_type(std::move(st)), init_list(std::move(il)) {
+    }
 };
 
 struct dynamic_alloc : expr {
