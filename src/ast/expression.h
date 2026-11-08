@@ -21,8 +21,10 @@ enum class binary_op : std::uint8_t {
     SUBTRACT,
     MULTIPLY,
     DIVIDE,
+    FLOOR_DIVIDE,
     EXPONENT,
     EQUALS,
+    NOT_EQUALS,
     GT,
     GTE,
     LT,
@@ -47,17 +49,45 @@ struct unary_expr : expr {
 };
 
 using arg_list = std::vector<expr_ptr>;
-using postfix_arg = std::variant<expr_ptr, std::string, arg_list>;
-enum class postfix_op : std::uint8_t { SUBSCRIPT, MEMBER_ACCESS, PTR_MEMBER_ACCESS, FUNCT_CALL };
+
+struct update_arguments {
+    arg_list regular;
+    arg_list state;
+};
+
+using postfix_arg = std::variant<expr_ptr,        // Index expression
+                                 std::string,     // Member name
+                                 arg_list,        // Ordinary call arguments
+                                 update_arguments // Update call arguments
+                                 >;
+
+enum class postfix_op : std::uint8_t { SUBSCRIPT, MEMBER_ACCESS, FUNCT_CALL, UPDATE_CALL };
 
 struct postfix_expr : expr {
     postfix_op operation;
     expr_ptr obj;
     postfix_arg arg;
-    postfix_expr(postfix_op o, expr_ptr lhs, postfix_arg rhs)
-        : operation(o), obj(std::move(lhs)), arg(std::move(rhs)) {};
-};
 
+    // object[index]
+    postfix_expr(expr_ptr object, expr_ptr index)
+        : operation(postfix_op::SUBSCRIPT), obj(std::move(object)), arg(std::move(index)) {
+    }
+
+    // object.member
+    postfix_expr(expr_ptr object, std::string member)
+        : operation(postfix_op::MEMBER_ACCESS), obj(std::move(object)), arg(std::move(member)) {
+    }
+
+    // callee(arguments)
+    postfix_expr(expr_ptr callee, arg_list arguments)
+        : operation(postfix_op::FUNCT_CALL), obj(std::move(callee)), arg(std::move(arguments)) {
+    }
+
+    // callee(ordinary arguments)(state arguments)
+    postfix_expr(expr_ptr callee, update_arguments arguments)
+        : operation(postfix_op::UPDATE_CALL), obj(std::move(callee)), arg(std::move(arguments)) {
+    }
+};
 using literal_val = std::variant<std::int32_t, std::byte, float, char, bool>;
 struct literal : expr {
     literal_val value;
@@ -68,4 +98,11 @@ struct literal : expr {
 struct variable : expr {
     std::string lexeme;
     variable(std::string &l) : lexeme(l) {};
+};
+
+struct assignment_expr : expr {
+    expr_ptr target, value;
+
+    assignment_expr(expr_ptr lhs, expr_ptr rhs)
+        : target(std::move(target)), value(std::move(value)) {};
 };
