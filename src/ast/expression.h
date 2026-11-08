@@ -35,7 +35,7 @@ struct binary_expr : expr {
         : operation(o), left(std::move(lhs)), right(std::move(rhs)) {};
 };
 
-enum class unary_op : std::uint8_t { NEGATE, DEREFERENCE, ADDRESS, BITWISE_NOT };
+enum class unary_op : std::uint8_t { NEGATE, DEREFERENCE, ADDRESS, LOGICAL_NOT };
 
 struct unary_expr : expr {
     unary_op operation;
