@@ -19,9 +19,9 @@ enum class primitive_type : std::uint8_t { INT, FLOAT, CHAR, BOOL, BYTE };
 using type_ptr = std::unique_ptr<type_syntax>;
 
 struct primitive_type_syntax : type_syntax {
-    primitive_type kind;
+    primitive_type type;
 
-    explicit primitive_type_syntax(primitive_type k) : kind(k) {
+    explicit primitive_type_syntax(primitive_type t) : type(t) {
     }
 };
 
