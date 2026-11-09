@@ -32,6 +32,7 @@ equalityExpression
     = relationalExpression
       { ( "==" | "!=" ) relationalExpression } ;
 
+(* "<-" directly after an operand is split by the parser into "<" "-", so x<-1 = x < -1 *)
 relationalExpression
     = additiveExpression
       { ( "<" | ">" | "<=" | ">=" ) additiveExpression } ;
@@ -42,23 +43,23 @@ additiveExpression
       { ( "+" | "-" ) multiplicativeExpression } ;
 
 multiplicativeExpression
-    = powerExpression
-      { ( "*" | "/" | "\" ) powerExpression } ;
+    = unaryExpression
+      { ( "*" | "/" | "\" ) unaryExpression } ;
 
 
-powerExpression
-    = unaryExpression [ "~" powerExpression ] ;
-
+(* sign operators bind looser than ~, so -2 ~ 2 = -(2 ~ 2) = -4 *)
 unaryExpression
-    = unaryOperator unaryExpression
-    | postfixExpression ;
+    = ( "-" | "!" ) unaryExpression
+    | powerExpression ;
 
-unaryOperator
-    = "+"
-    | "-"
-    | "!"
-    | "@"
-    | "<-" ;
+(* right associative: 2 ~ 3 ~ 2 = 2 ~ (3 ~ 2); exponent may be signed: 2 ~ -1 *)
+powerExpression
+    = prefixExpression [ "~" unaryExpression ] ;
+
+(* pointer operators bind tighter than ~, so <-p ~ 2 = (<-p) ~ 2 *)
+prefixExpression
+    = ( "@" | "<-" ) prefixExpression
+    | postfixExpression ;
 
 
 postfixExpression
@@ -87,12 +88,13 @@ primaryExpression
 
 
 literal
-    = INTEGER
-    | FLOAT
-    | CHAR
-    | STRING
-    | "true"
-    | "false" ;
+    = INT_LITERAL
+    | BASE_2_LITERAL
+    | BASE_16_LITERAL
+    | FLOAT_LITERAL
+    | CHAR_LITERAL
+    | STRING_LITERAL
+    | BOOL_LITERAL ;   (* "true" / "false" *)
 
 
 arrayLiteral

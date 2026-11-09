@@ -31,7 +31,6 @@ enum class token_type : std::uint8_t {
     NEW,
     PRINT,
     SCAN,
-    POINTER, // '->'
 
     // identifier
     IDENTIFIER,
@@ -44,13 +43,14 @@ enum class token_type : std::uint8_t {
     DIVIDE_FLOOR,     // '\'
     EXPONENT,         // '~'
     XOR,              // '^'
-    BOOL_AND,         // '&'
-    BOOL_OR,          // '|'
+    BIT_AND,          // '&'
+    BIT_OR,           // '|'
     LOGICAL_AND,      // '&&
     LOGICAL_OR,       // '||'
     NOT,              // '!'
     ADDRESS,          // '@'
     DEREFERENCE,      // '<-'
+    POINTER,          // '->'
     ACCESS,           // '.'
     EQUAL,            // '=='
     ASSIGN,           // '='

@@ -365,8 +365,8 @@ const graph_node xor_operator{token_type::XOR, {}};
 const graph_node address{token_type::ADDRESS, {}};
 
 const graph_node minus{token_type::MINUS, edges({{is('>'), &pointer}})};
-const graph_node bool_and{token_type::BOOL_AND, edges({{is('&'), &logical_and}})};
-const graph_node bool_or{token_type::BOOL_OR, edges({{is('|'), &logical_or}})};
+const graph_node bit_and{token_type::BIT_AND, edges({{is('&'), &logical_and}})};
+const graph_node bit_or{token_type::BIT_OR, edges({{is('|'), &logical_or}})};
 const graph_node not_operator{token_type::NOT, edges({{is('='), &not_equal}})};
 const graph_node assign{token_type::ASSIGN, edges({{is('='), &equal}})};
 
@@ -443,8 +443,8 @@ const graph_node start{
         {is('^'), &xor_operator},
         {is('@'), &address},
         {is('-'), &minus},
-        {is('&'), &bool_and},
-        {is('|'), &bool_or},
+        {is('&'), &bit_and},
+        {is('|'), &bit_or},
         {is('!'), &not_operator},
         {is('='), &assign},
         {is('<'), &lesser},
