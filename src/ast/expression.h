@@ -150,3 +150,5 @@ struct conversion_expr : expr {
         : target_type(std::move(type)), value(std::move(expression)) {
     }
 };
+
+struct this_expr : expr {};
