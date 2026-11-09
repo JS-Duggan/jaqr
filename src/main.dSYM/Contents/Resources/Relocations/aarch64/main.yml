@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/ameliafule/Documents/Uni/LMTE/jaqr/src/main'
+relocations:     []
+...
