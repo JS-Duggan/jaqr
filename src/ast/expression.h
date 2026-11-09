@@ -91,7 +91,7 @@ struct postfix_expr : expr {
         : op(postfix_op::UPDATE_CALL), obj(std::move(callee)), arg(std::move(arguments)) {
     }
 };
-using literal_val = std::variant<std::int32_t, std::byte, std::string, float, unsigned char, bool>;
+using literal_val = std::variant<std::int32_t, std::byte, std::string, double, char, bool>;
 struct literal : expr {
     literal_val value;
 
