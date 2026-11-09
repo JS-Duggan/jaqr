@@ -49,7 +49,7 @@ multiplicativeExpression
 
 (* sign operators bind looser than ~, so -2 ~ 2 = -(2 ~ 2) = -4 *)
 unaryExpression
-    = ( "+" | "-" | "!" ) unaryExpression
+    = ( "-" | "!" ) unaryExpression
     | powerExpression ;
 
 (* right associative: 2 ~ 3 ~ 2 = 2 ~ (3 ~ 2); exponent may be signed: 2 ~ -1 *)
