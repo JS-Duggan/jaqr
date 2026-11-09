@@ -23,9 +23,8 @@ int main(int argc, char *argv[]) {
 
         std::string line;
         while (std::getline(file, line)) {
-            std::vector<char> chars(line.begin(), line.end());
-            chars.push_back('\n');
-            data.push_back(chars);
+            data.emplace_back(line.begin(), line.end());
+            data.back().push_back('\n');
         }
     } catch (const std::exception &error) {
         std::cerr << "Error: " << error.what() << '\n';
