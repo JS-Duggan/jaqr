@@ -1,6 +1,7 @@
 #pragma once
 
 #include "expression_base.h"
+#include "source.h"
 
 #include <cstdint>
 #include <memory>
@@ -9,6 +10,8 @@
 
 struct type_syntax {
     virtual ~type_syntax() = default;
+
+    source_span source;
 };
 
 enum class primitive_type : std::uint8_t { INT, FLOAT, CHAR, BOOL, BYTE };
