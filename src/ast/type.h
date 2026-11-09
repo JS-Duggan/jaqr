@@ -14,7 +14,7 @@ struct type_syntax {
     source_span source;
 };
 
-enum class primitive_type : std::uint8_t { INT, FLOAT, CHAR, BOOL, BYTE };
+enum class primitive_type : std::uint8_t { INT, FLOAT, CHAR, BOOL, BYTE, VOID };
 
 using type_ptr = std::unique_ptr<type_syntax>;
 

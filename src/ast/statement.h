@@ -27,7 +27,7 @@ struct decl_stmt : stmt {
 struct return_stmt : stmt {
     expr_ptr value;
 
-    explicit return_stmt(expr_ptr v) : value(std::move(v)) {
+    explicit return_stmt(expr_ptr v = nullptr) : value(std::move(v)) {
     }
 };
 
