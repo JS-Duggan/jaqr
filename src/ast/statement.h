@@ -31,13 +31,6 @@ struct return_stmt : stmt {
     }
 };
 
-struct scan_stmt : stmt {
-    std::vector<expr_ptr> targets;
-
-    explicit scan_stmt(std::vector<expr_ptr> t) : targets(std::move(t)) {
-    }
-};
-
 struct conditional_branch {
     expr_ptr condition;
     block_ptr body;
