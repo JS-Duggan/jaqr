@@ -71,6 +71,9 @@ prefixExpression
 postfixExpression
     = primaryExpression { postfixSuffix } ;
 
+(* two argument clauses in a row are one update call. as in updateFunctionDeclaration, the first
+   clause is the state arguments and the second is the non-state arguments: f(s)(x).
+   update methods take one clause, so p.m(x) parses as an ordinary call *)
 postfixSuffix
     = argumentClause
     | "[" expression "]"

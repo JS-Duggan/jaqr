@@ -29,8 +29,6 @@ enum class token_type : std::uint8_t {
     IMPL,
     THIS,
     NEW,
-    PRINT,
-    SCAN,
 
     // identifier
     IDENTIFIER,

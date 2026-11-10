@@ -18,6 +18,8 @@ enum class binary_op : std::uint8_t {
     BITWISE_OR,
     BITWISE_AND,
     BITWISE_XOR,
+    LEFT_SHIFT,
+    RIGHT_SHIFT,
     ADD,
     SUBTRACT,
     MULTIPLY,
@@ -86,7 +88,7 @@ struct postfix_expr : expr {
         : op(postfix_op::FUNCT_CALL), obj(std::move(callee)), arg(std::move(arguments)) {
     }
 
-    // callee(ordinary arguments)(state arguments)
+    // callee(state arguments)(ordinary arguments)
     postfix_expr(expr_ptr callee, update_arguments arguments)
         : op(postfix_op::UPDATE_CALL), obj(std::move(callee)), arg(std::move(arguments)) {
     }
@@ -95,7 +97,7 @@ using literal_val = std::variant<std::int32_t, std::byte, std::string, double, c
 struct literal : expr {
     literal_val value;
 
-    literal(literal_val v) : value(v) {
+    literal(literal_val v) : value(std::move(v)) {
     }
 };
 
