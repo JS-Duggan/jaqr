@@ -1,7 +1,13 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
+#include <string>
+#include <vector>
+
 #include "Scope.h"
+#include "Symbol.h"
+
+using namespace std;
 
 // class with the SymbolTable's behaviours
 class SymbolTable {
