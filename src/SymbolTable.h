@@ -1,7 +1,13 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
+#include <string>
+#include <vector>
+
 #include "Scope.h"
+#include "Symbol.h"
+
+using namespace std;
 
 // class with the SymbolTable's behaviours
 class SymbolTable {
@@ -45,8 +51,9 @@ class SymbolTable {
     }
   }
 
-  // check when declaring a variable, if something with that name already exists and not allow shadowing if it is already declared
-  // boolean because it either is or isn't declared
+  // check when declaring a variable, if something with that name already exists
+  // and not allow shadowing if it is already declared boolean because it either
+  // is or isn't declared
   bool alreadyDeclared(string name) {
     // start searching from current scope
     Scope* scope = currentScope;
@@ -66,7 +73,8 @@ class SymbolTable {
     return false;
   }
 
-  // declaring a variable that hasn't already been declare and add to symbol table if not
+  // declaring a variable that hasn't already been declare and add to symbol
+  // table if not
   bool declare(Symbol symbol, bool isGlobal = false) {
     // check if this name already exists in current scope or any of its parent
     // scopes with alreadyDeclared function above
@@ -115,7 +123,8 @@ class SymbolTable {
   // lookup a symbol to find where it has been used before (linesUsedIn)
   bool addLinesUsedIn(string name, int line) {
     // find symbol using the current scope and its parents
-    Symbol* symbol = lookup(name); //use lookup function declared above to find symbol, so then can update
+    Symbol* symbol = lookup(name);  // use lookup function declared above to
+                                    // find symbol, so then can update
 
     // if doesn't exist, hasn't been declared
     if (symbol == nullptr) {
@@ -129,12 +138,11 @@ class SymbolTable {
   }
 };
 
-// Things i need to think about for including later/ see if other people are covering them in their parts:
-// destructor to clean up dynamically allocated scopes
-// A way to retrieve the global scope
-// function signature checking using parameter and return types
-// array dimensions and data structure size calculation
-// Memory address assignment during code generation
-// and where should these be implemented...???
+// Things i need to think about for including later/ see if other people are
+// covering them in their parts: destructor to clean up dynamically allocated
+// scopes A way to retrieve the global scope function signature checking using
+// parameter and return types array dimensions and data structure size
+// calculation Memory address assignment during code generation and where should
+// these be implemented...???
 
 #endif
