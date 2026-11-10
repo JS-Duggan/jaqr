@@ -85,30 +85,28 @@ expr_ptr make_this_expr() {
 
 // ---- Declarations ----
 
-std::unique_ptr<variable_decl> make_variable_decl(std::string n, type_ptr type, expr_ptr init,
-                                                  variable_storage s, bool imut) {
+variable_decl_ptr make_variable_decl(std::string n, type_ptr type, expr_ptr init,
+                                     variable_storage s, bool imut) {
     return std::make_unique<variable_decl>(std::move(n), std::move(type), std::move(init), s, imut);
 }
 
 // Ordinary function or method, with an explicit return type.
-std::unique_ptr<function_decl> make_function_decl(std::string n, std::vector<parameter> params,
-                                                  type_ptr result, block_ptr b) {
+function_decl_ptr make_function_decl(std::string n, std::vector<parameter> params, type_ptr result,
+                                     block_ptr b) {
     return std::make_unique<function_decl>(std::move(n), std::move(params), std::move(result),
                                            std::move(b));
 }
 
 // Free update function, with ordinary and state parameter lists.
-std::unique_ptr<function_decl> make_update_function_decl(std::string n,
-                                                         std::vector<parameter> params,
-                                                         std::vector<parameter> state,
-                                                         block_ptr b) {
+function_decl_ptr make_update_function_decl(std::string n, std::vector<parameter> params,
+                                            std::vector<parameter> state, block_ptr b) {
     return std::make_unique<function_decl>(std::move(n), std::move(params), std::move(state),
                                            std::move(b));
 }
 
 // Update method: its enclosing impl supplies the implicit state receiver.
-std::unique_ptr<function_decl> make_update_method_decl(std::string n, std::vector<parameter> params,
-                                                       block_ptr b) {
+function_decl_ptr make_update_method_decl(std::string n, std::vector<parameter> params,
+                                          block_ptr b) {
     return std::make_unique<function_decl>(std::move(n), std::move(params), std::move(b));
 }
 
@@ -116,7 +114,7 @@ decl_ptr make_struct_decl(std::string n, std::vector<field_decl> f) {
     return std::make_unique<struct_decl>(std::move(n), std::move(f));
 }
 
-decl_ptr make_impl_decl(std::string n, std::vector<std::unique_ptr<function_decl>> m) {
+decl_ptr make_impl_decl(std::string n, std::vector<function_decl_ptr> m) {
     return std::make_unique<impl_decl>(std::move(n), std::move(m));
 }
 
@@ -124,7 +122,7 @@ decl_ptr make_invariant_decl(expr_ptr c) {
     return std::make_unique<invariant_decl>(std::move(c));
 }
 
-std::unique_ptr<program> make_program(std::vector<decl_ptr> d) {
+program_ptr make_program(std::vector<decl_ptr> d) {
     return std::make_unique<program>(std::move(d));
 }
 
@@ -155,8 +153,7 @@ stmt_ptr make_while_stmt(expr_ptr c, block_ptr b) {
     return std::make_unique<while_stmt>(std::move(c), std::move(b));
 }
 
-stmt_ptr make_for_stmt(std::unique_ptr<variable_decl> init, expr_ptr test, expr_ptr next,
-                       block_ptr b) {
+stmt_ptr make_for_stmt(variable_decl_ptr init, expr_ptr test, expr_ptr next, block_ptr b) {
     return std::make_unique<for_stmt>(std::move(init), std::move(test), std::move(next),
                                       std::move(b));
 }

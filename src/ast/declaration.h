@@ -37,6 +37,8 @@ struct variable_decl : decl {
     }
 };
 
+using variable_decl_ptr = std::unique_ptr<variable_decl>;
+
 struct parameter {
     std::string name;
     type_ptr declared_type;
@@ -74,6 +76,8 @@ struct function_decl : decl {
     }
 };
 
+using function_decl_ptr = std::unique_ptr<function_decl>;
+
 struct field_decl {
     std::string name;
     type_ptr declared_type;
@@ -93,9 +97,9 @@ struct struct_decl : decl {
 
 struct impl_decl : decl {
     std::string type_name;
-    std::vector<std::unique_ptr<function_decl>> methods;
+    std::vector<function_decl_ptr> methods;
 
-    impl_decl(std::string n, std::vector<std::unique_ptr<function_decl>> m)
+    impl_decl(std::string n, std::vector<function_decl_ptr> m)
         : type_name(std::move(n)), methods(std::move(m)) {
     }
 };
@@ -114,3 +118,5 @@ struct program {
     explicit program(std::vector<decl_ptr> d = {}) : declarations(std::move(d)) {
     }
 };
+
+using program_ptr = std::unique_ptr<program>;

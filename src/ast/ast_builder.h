@@ -49,32 +49,30 @@ expr_ptr make_this_expr();
 // ---- Declarations ----
 
 // Returns the concrete type so for_stmt can take it; converts to decl_ptr implicitly.
-std::unique_ptr<variable_decl> make_variable_decl(std::string n, type_ptr type,
-                                                  expr_ptr init = nullptr,
-                                                  variable_storage s = variable_storage::ORDINARY,
-                                                  bool imut = false);
+variable_decl_ptr make_variable_decl(std::string n, type_ptr type, expr_ptr init = nullptr,
+                                     variable_storage s = variable_storage::ORDINARY,
+                                     bool imut = false);
 
 // Ordinary function or method, with an explicit return type.
 // Returns the concrete type so impl_decl can take it; converts to decl_ptr implicitly.
-std::unique_ptr<function_decl> make_function_decl(std::string n, std::vector<parameter> params,
-                                                  type_ptr result, block_ptr b);
+function_decl_ptr make_function_decl(std::string n, std::vector<parameter> params, type_ptr result,
+                                     block_ptr b);
 
 // Free update function, with ordinary and state parameter lists.
-std::unique_ptr<function_decl> make_update_function_decl(std::string n,
-                                                         std::vector<parameter> params,
-                                                         std::vector<parameter> state, block_ptr b);
+function_decl_ptr make_update_function_decl(std::string n, std::vector<parameter> params,
+                                            std::vector<parameter> state, block_ptr b);
 
 // Update method: its enclosing impl supplies the implicit state receiver.
-std::unique_ptr<function_decl> make_update_method_decl(std::string n, std::vector<parameter> params,
-                                                       block_ptr b);
+function_decl_ptr make_update_method_decl(std::string n, std::vector<parameter> params,
+                                          block_ptr b);
 
 decl_ptr make_struct_decl(std::string n, std::vector<field_decl> f);
 
-decl_ptr make_impl_decl(std::string n, std::vector<std::unique_ptr<function_decl>> m);
+decl_ptr make_impl_decl(std::string n, std::vector<function_decl_ptr> m);
 
 decl_ptr make_invariant_decl(expr_ptr c);
 
-std::unique_ptr<program> make_program(std::vector<decl_ptr> d = {});
+program_ptr make_program(std::vector<decl_ptr> d = {});
 
 // ---- Statements ----
 
@@ -91,8 +89,7 @@ stmt_ptr make_if_stmt(std::vector<conditional_branch> b, block_ptr otherwise = n
 
 stmt_ptr make_while_stmt(expr_ptr c, block_ptr b);
 
-stmt_ptr make_for_stmt(std::unique_ptr<variable_decl> init, expr_ptr test, expr_ptr next,
-                       block_ptr b);
+stmt_ptr make_for_stmt(variable_decl_ptr init, expr_ptr test, expr_ptr next, block_ptr b);
 
 stmt_ptr make_step_stmt(block_ptr b, block_ptr rejection = nullptr);
 
