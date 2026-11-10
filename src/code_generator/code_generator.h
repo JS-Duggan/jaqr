@@ -1,10 +1,16 @@
+#pragma once
+
 #include "../ast/declaration.h"
 #include "../ast/expression.h"
 #include "../ast/statement.h"
 #include "../ast/type.h"
 #include "../visitor/visitor.h"
 
+#include <string>
+
 class code_generator : visitor {
+    std::vector<std::string> loc;
+
   public:
     void visit(const program &node) override;
 
