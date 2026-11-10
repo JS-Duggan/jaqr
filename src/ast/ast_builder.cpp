@@ -46,13 +46,13 @@ expr_ptr make_call_expr(expr_ptr callee, arg_list arguments) {
     return std::make_unique<postfix_expr>(std::move(callee), std::move(arguments));
 }
 
-// callee(ordinary arguments)(state arguments)
+// callee(state arguments)(ordinary arguments)
 expr_ptr make_update_call_expr(expr_ptr callee, update_arguments arguments) {
     return std::make_unique<postfix_expr>(std::move(callee), std::move(arguments));
 }
 
 expr_ptr make_literal(literal_val v) {
-    return std::make_unique<literal>(v);
+    return std::make_unique<literal>(std::move(v));
 }
 
 identifier_ptr make_identifier(std::string l) {
@@ -91,8 +91,8 @@ variable_decl_ptr make_variable_decl(identifier_ptr n, type_ptr type, expr_ptr i
 }
 
 // Ordinary function or method, with an explicit return type.
-function_decl_ptr make_function_decl(identifier_ptr n, std::vector<parameter> params, type_ptr result,
-                                     block_ptr b) {
+function_decl_ptr make_function_decl(identifier_ptr n, std::vector<parameter> params,
+                                     type_ptr result, block_ptr b) {
     return std::make_unique<function_decl>(std::move(n), std::move(params), std::move(result),
                                            std::move(b));
 }

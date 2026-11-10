@@ -29,7 +29,7 @@ expr_ptr make_member_access_expr(expr_ptr object, std::string member);
 // callee(arguments)
 expr_ptr make_call_expr(expr_ptr callee, arg_list arguments);
 
-// callee(ordinary arguments)(state arguments)
+// callee(state arguments)(ordinary arguments)
 expr_ptr make_update_call_expr(expr_ptr callee, update_arguments arguments);
 
 expr_ptr make_literal(literal_val v);
@@ -55,8 +55,8 @@ variable_decl_ptr make_variable_decl(identifier_ptr n, type_ptr type, expr_ptr i
 
 // Ordinary function or method, with an explicit return type.
 // Returns the concrete type so impl_decl can take it; converts to decl_ptr implicitly.
-function_decl_ptr make_function_decl(identifier_ptr n, std::vector<parameter> params, type_ptr result,
-                                     block_ptr b);
+function_decl_ptr make_function_decl(identifier_ptr n, std::vector<parameter> params,
+                                     type_ptr result, block_ptr b);
 
 // Free update function, with ordinary and state parameter lists.
 function_decl_ptr make_update_function_decl(identifier_ptr n, std::vector<parameter> params,
