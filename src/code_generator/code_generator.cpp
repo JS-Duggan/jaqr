@@ -395,10 +395,41 @@ void code_generator::visit(const invariant_decl &node) {
 
 // Type syntax
 void code_generator::visit(const primitive_type_syntax &node) {
+    switch (node.type) {
+    case primitive_type::VOID:
+        loc.back() += "void";
+        break;
+    case primitive_type::INT:
+        loc.back() += "std::int32_t";
+        break;
+    case primitive_type::FLOAT:
+        loc.back() += "double";
+        break;
+    case primitive_type::CHAR:
+        loc.back() += "char";
+        break;
+    case primitive_type::BOOL:
+        loc.back() += "bool";
+        break;
+    case primitive_type::BYTE:
+        loc.back() += "std::byte";
+        break;
+    }
 }
+
 void code_generator::visit(const named_type_syntax &node) {
+    loc.back() += node.name;
 }
+
 void code_generator::visit(const pointer_type_syntax &node) {
+    node.pointee->accept(*this);
+    loc.back() += '*';
 }
+
 void code_generator::visit(const array_type_syntax &node) {
+    loc.back() += "std::array<";
+    node.element->accept(*this);
+    loc.back() += ", ";
+    node.size->accept(*this);
+    loc.back() += ">";
 }
