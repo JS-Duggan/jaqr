@@ -288,7 +288,11 @@ void code_generator::visit(const decl_stmt &node) {
 }
 
 void code_generator::visit(const return_stmt &node) {
-    node.value->accept(*this);
+    loc.back() += "return";
+    if (node.value) {
+        loc.back() += " ";
+        node.value->accept(*this);
+    }
     loc.back() += ";";
     loc.emplace_back();
 }
@@ -301,6 +305,10 @@ void code_generator::visit(const if_stmt &node) {
         loc.back() += ") ";
         branch.body->accept(*this);
         first = false;
+    }
+    if (node.else_body) {
+        loc.back() += "else ";
+        node.else_body->accept(*this);
     }
 }
 
@@ -342,7 +350,15 @@ void code_generator::visit(const variable_decl &node) {
 }
 
 void code_generator::visit(const function_decl &node) {
-    node.return_type->accept(*this);
+    if (node.name == "main") {
+        loc.back() += "int";
+    } else if (node.kind == function_kind::UPDATE) {
+        loc.back() += "void";
+    } else if (node.return_type) {
+        node.return_type->accept(*this);
+    } else {
+        throw std::invalid_argument("Ordinary function requires a return type");
+    }
     loc.back() += " " + node.name;
     loc.back() += "(";
 
