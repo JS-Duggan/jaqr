@@ -205,18 +205,40 @@ void code_generator::visit(const literal &node) {
         node.value);
     loc.back() += ")";
 }
+
 void code_generator::visit(const variable &node) {
+    loc.back() += "(" + node.lexeme + ")";
 }
+
 void code_generator::visit(const assignment_expr &node) {
+    loc.back() += "(";
+    node.target->accept(*this);
+    loc.back() += " = ";
+    node.value->accept(*this);
+    loc.back() += ")";
 }
+
 void code_generator::visit(const array_literal &node) {
+    loc.back() += "{";
+    bool first = true;
+    for (const auto &arg : node.elements) {
+        if (!first)
+            loc.back() += ",";
+        first = false;
+        arg->accept(*this);
+    }
+    loc.back() += "}";
 }
+
 void code_generator::visit(const struct_literal &node) {
 }
+
 void code_generator::visit(const dynamic_alloc &node) {
 }
+
 void code_generator::visit(const conversion_expr &node) {
 }
+
 void code_generator::visit(const this_expr &node) {
 }
 
