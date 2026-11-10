@@ -6,7 +6,6 @@
 
 using namespace std;
 
-
 // Symbol table tests:
 // basic declaration and lookup
 // parent scope lookup
@@ -16,13 +15,14 @@ using namespace std;
 
 // Test by calling these functions one at a time in main.cpp
 
-  //create instance of class
-  SymbolTable StTest;
+// create instance of class
+SymbolTable StTest;
 
 int alreadyDeclaredTest(string name) {
   // tests if a variable is already declared
 
-  bool isDeclared = StTest.alreadyDeclared(name);  // idk how to get this to work so that it can access the function
+  bool isDeclared = StTest.alreadyDeclared(
+      name);  // idk how to get this to work so that it can access the function
               // from SymbolTable.h in this function
 
   // declare variable already runs this, but this way we can see what it returns
