@@ -6,7 +6,7 @@
 - Ninja ([installation guide](https://github.com/ninja-build/ninja/releases))
 - Just ([installation guide](https://just.systems/man/en/installation.html))
 - C++20 compiler
-- clang-format
+- Python 3 with venv and pip (for the pinned clang-format version)
 - clang-tidy
 
 ## Commands

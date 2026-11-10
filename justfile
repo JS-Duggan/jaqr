@@ -13,11 +13,19 @@ release:
     cmake --preset release
     cmake --build --preset release
 
-format:
-    find src -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec clang-format -i {} +
+format-tool:
+    #!/bin/sh
+    set -eu
+    if [ ! -x .format-venv/bin/python ]; then
+        python3 -m venv .format-venv
+    fi
+    .format-venv/bin/python -m pip install --disable-pip-version-check 'clang-format==18.1.6'
 
-format-check:
-    find src -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec clang-format --dry-run --Werror {} +
+format: format-tool
+    find src -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec .format-venv/bin/clang-format -i {} +
+
+format-check: format-tool
+    find src -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec .format-venv/bin/clang-format --dry-run --Werror {} +
 
 lint: configure
     #!/bin/sh
