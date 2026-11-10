@@ -68,7 +68,26 @@ void code_generator::visit(const binary_expr &node) {
 }
 
 void code_generator::visit(const unary_expr &node) {
+    loc.back() += " (";
+    switch (node.operation) {
+    case unary_op::NEGATE:
+        loc.back() += "-";
+        break;
+    case unary_op::DEREFERENCE:
+        loc.back() += "*";
+        break;
+    case unary_op::ADDRESS:
+        loc.back() += "&";
+        break;
+    case unary_op::LOGICAL_NOT:
+        loc.back() += "!";
+        break;
+    }
+    loc.back() += "(";
+    node.right->accept(*this);
+    loc.back() += "))";
 }
+
 void code_generator::visit(const postfix_expr &node) {
 }
 void code_generator::visit(const literal &node) {
