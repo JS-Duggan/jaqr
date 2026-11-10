@@ -294,11 +294,35 @@ void code_generator::visit(const return_stmt &node) {
 }
 
 void code_generator::visit(const if_stmt &node) {
+    bool first = true;
+    for (const auto &branch : node.branches) {
+        loc.back() += first ? "if (" : "else if (";
+        branch.condition->accept(*this);
+        loc.back() += ") ";
+        branch.body->accept(*this);
+        first = false;
+    }
 }
 
 void code_generator::visit(const while_stmt &node) {
+    loc.back() += "while (";
+    node.condition->accept(*this);
+    loc.back() += ") ";
+    node.body->accept(*this);
 }
+
 void code_generator::visit(const for_stmt &node) {
+    loc.back() += "for (";
+    if (node.initializer)
+        node.initializer->accept(*this);
+    loc.back() += "; ";
+    if (node.condition)
+        node.condition->accept(*this);
+    loc.back() += "; ";
+    if (node.increment)
+        node.increment->accept(*this);
+    loc.back() += ") ";
+    node.body->accept(*this);
 }
 void code_generator::visit(const step_stmt &node) {
 }
