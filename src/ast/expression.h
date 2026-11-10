@@ -73,8 +73,7 @@ struct postfix_expr : expr {
 
     // object[index]
     postfix_expr(expr_ptr object, expr_ptr index)
-        : op(postfix_op::SUBSCRIPT), obj(std::move(object)), arg(std::move(index)) {
-    }
+        : op(postfix_op::SUBSCRIPT), obj(std::move(object)), arg(std::move(index)) {};
 
     // object.member
     postfix_expr(expr_ptr object, std::string member)
