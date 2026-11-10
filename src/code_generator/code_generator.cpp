@@ -266,15 +266,36 @@ void code_generator::visit(const this_expr &node) {
 
 // Statements
 void code_generator::visit(const block_stmt &node) {
+    loc.emplace_back("{");
+    loc.emplace_back();
+    for (const auto &stmt : node.statements) {
+        stmt->accept(*this);
+    }
+    loc.push_back("}");
+    loc.emplace_back();
 }
+
 void code_generator::visit(const expr_stmt &node) {
+    node.expression->accept(*this);
+    loc.back() += ";";
+    loc.emplace_back();
 }
+
 void code_generator::visit(const decl_stmt &node) {
+    node.declaration->accept(*this);
+    loc.back() += ";";
+    loc.emplace_back();
 }
+
 void code_generator::visit(const return_stmt &node) {
+    node.value->accept(*this);
+    loc.back() += ";";
+    loc.emplace_back();
 }
+
 void code_generator::visit(const if_stmt &node) {
 }
+
 void code_generator::visit(const while_stmt &node) {
 }
 void code_generator::visit(const for_stmt &node) {
