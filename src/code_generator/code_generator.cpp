@@ -1,4 +1,5 @@
 #include "code_generator.h"
+#include <new>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -231,15 +232,36 @@ void code_generator::visit(const array_literal &node) {
 }
 
 void code_generator::visit(const struct_literal &node) {
+    loc.back() += node.struct_type + "{";
+    bool first = true;
+    for (const auto &arg : node.init_list) {
+        if (!first)
+            loc.back() += ",";
+        loc.back() += "." + arg.name + " = ";
+        first = false;
+        arg.val->accept(*this);
+    }
+    loc.back() += "}";
 }
 
 void code_generator::visit(const dynamic_alloc &node) {
+    loc.back() += "(new ";
+    node.element_type->accept(*this);
+    loc.back() += "[";
+    node.count->accept(*this);
+    loc.back() += "]())";
 }
 
 void code_generator::visit(const conversion_expr &node) {
+    loc.back() += "(static_cast<";
+    node.target_type->accept(*this);
+    loc.back() += ">(";
+    node.value->accept(*this);
+    loc.back() += "))";
 }
 
 void code_generator::visit(const this_expr &node) {
+    loc.back() += "(*this)";
 }
 
 // Statements
