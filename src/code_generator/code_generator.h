@@ -6,41 +6,41 @@
 
 class code_generator : visitor {
   public:
-    void visit(const program &node);
+    void visit(const program &node) override;
 
-    // Expressions
-    void visit(const binary_expr &node);
-    void visit(const unary_expr &node);
-    void visit(const postfix_expr &node);
-    void visit(const literal &node);
-    void visit(const variable &node);
-    void visit(const assignment_expr &node);
-    void visit(const array_literal &node);
-    void visit(const struct_literal &node);
-    void visit(const dynamic_alloc &node);
-    void visit(const conversion_expr &node);
-    void visit(const this_expr &node);
+    // Expressions:
+    void visit(const binary_expr &node) override;
+    void visit(const unary_expr &node) override;
+    void visit(const postfix_expr &node) override;
+    void visit(const literal &node) override;
+    void visit(const variable &node) override;
+    void visit(const assignment_expr &node) override;
+    void visit(const array_literal &node) override;
+    void visit(const struct_literal &node) override;
+    void visit(const dynamic_alloc &node) override;
+    void visit(const conversion_expr &node) override;
+    void visit(const this_expr &node) override;
 
     // Statements
-    void visit(const block_stmt &node);
-    void visit(const expr_stmt &node);
-    void visit(const decl_stmt &node);
-    void visit(const return_stmt &node);
-    void visit(const if_stmt &node);
-    void visit(const while_stmt &node);
-    void visit(const for_stmt &node);
-    void visit(const step_stmt &node);
+    void visit(const block_stmt &node) override;
+    void visit(const expr_stmt &node) override;
+    void visit(const decl_stmt &node) override;
+    void visit(const return_stmt &node) override;
+    void visit(const if_stmt &node) override;
+    void visit(const while_stmt &node) override;
+    void visit(const for_stmt &node) override;
+    void visit(const step_stmt &node) override;
 
     // Declarations
-    void visit(const variable_decl &node);
-    void visit(const function_decl &node);
-    void visit(const struct_decl &node);
-    void visit(const impl_decl &node);
-    void visit(const invariant_decl &node);
+    void visit(const variable_decl &node) override;
+    void visit(const function_decl &node) override;
+    void visit(const struct_decl &node) override;
+    void visit(const impl_decl &node) override;
+    void visit(const invariant_decl &node) override;
 
     // Type syntax
-    void visit(const primitive_type_syntax &node);
-    void visit(const named_type_syntax &node);
-    void visit(const pointer_type_syntax &node);
-    void visit(const array_type_syntax &node);
+    void visit(const primitive_type_syntax &node) override;
+    void visit(const named_type_syntax &node) override;
+    void visit(const pointer_type_syntax &node) override;
+    void visit(const array_type_syntax &node) override;
 };
