@@ -3,6 +3,10 @@ project(jaqr LANGUAGES CXX)
 
 add_executable(jaqr
     src/main.cpp
+    src/ast/declaration.cpp
+    src/ast/expression.cpp
+    src/ast/statement.cpp
+    src/ast/type.cpp
     src/tokeniser/dfa.cpp
     src/tokeniser/tokeniser.cpp
 )
