@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ast_root.h"
 #include "declaration.h"
 #include "expression.h"
 #include "expression_base.h"
@@ -9,8 +10,10 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
+
+// ---- Root ----
+ast_root_ptr make_ast_root(std::vector<decl_ptr> decls = {});
 
 // ---- Expressions ----
 
@@ -59,12 +62,11 @@ std::unique_ptr<function_decl> make_function_decl(std::string n, std::vector<par
 // Free update function, with ordinary and state parameter lists.
 std::unique_ptr<function_decl> make_update_function_decl(std::string n,
                                                          std::vector<parameter> params,
-                                                         std::vector<parameter> state,
-                                                         block_ptr b);
+                                                         std::vector<parameter> state, block_ptr b);
 
 // Update method: its enclosing impl supplies the implicit state receiver.
-std::unique_ptr<function_decl> make_update_method_decl(std::string n,
-                                                       std::vector<parameter> params, block_ptr b);
+std::unique_ptr<function_decl> make_update_method_decl(std::string n, std::vector<parameter> params,
+                                                       block_ptr b);
 
 decl_ptr make_struct_decl(std::string n, std::vector<field_decl> f);
 

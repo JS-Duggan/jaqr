@@ -1,5 +1,6 @@
 
 #include "ast_builder.h"
+#include "ast_root.h"
 #include "declaration.h"
 #include "expression.h"
 #include "expression_base.h"
@@ -13,6 +14,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+// ---- Root ----
+
+ast_root_ptr make_ast_root(std::vector<decl_ptr> decls) {
+    return std::make_unique<ast_root>(std::move(decls));
+}
 
 // ---- Expressions ----
 
