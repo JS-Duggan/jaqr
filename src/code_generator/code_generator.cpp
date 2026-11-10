@@ -89,6 +89,55 @@ void code_generator::visit(const unary_expr &node) {
 }
 
 void code_generator::visit(const postfix_expr &node) {
+    loc.back() += "((";
+    node.obj->accept(*this);
+    loc.back() += ")";
+
+    switch (node.op) {
+    case postfix_op::FUNCT_CALL: {
+        loc.back() += "(";
+        bool first = true;
+        for (const auto &a : std::get<arg_list>(node.arg)) {
+            if (!first)
+                loc.back() += ", ";
+            first = false;
+            a->accept(*this);
+        }
+        loc.back() += ")";
+        break;
+    }
+    case postfix_op::SUBSCRIPT:
+        loc.back() += "[";
+        std::get<expr_ptr>(node.arg)->accept(*this);
+        loc.back() += "]";
+        break;
+    case postfix_op::MEMBER_ACCESS:
+        loc.back() += ".";
+        loc.back() += std::get<std::string>(node.arg);
+        break;
+    case postfix_op::UPDATE_CALL: {
+        loc.back() += "(";
+        bool first = true;
+        auto &args = std::get<update_arguments>(node.arg);
+        for (const auto &a : args.regular) {
+            if (!first)
+                loc.back() += ",";
+            first = false;
+            a->accept(*this);
+        }
+        for (const auto &a : args.state) {
+            if (!first)
+                loc.back() += ",";
+            first = false;
+            loc.back() += "&(";
+            a->accept(*this);
+            loc.back() += ")";
+        }
+        loc.back() += ")";
+        break;
+    }
+    }
+    loc.back() += ")";
 }
 void code_generator::visit(const literal &node) {
 }
