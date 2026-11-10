@@ -99,11 +99,13 @@ struct literal : expr {
     }
 };
 
-struct variable : expr {
+struct identifier : expr {
     std::string lexeme;
-    variable(std::string &l) : lexeme(l) {
+    explicit identifier(std::string l) : lexeme(std::move(l)) {
     }
 };
+
+using identifier_ptr = std::unique_ptr<identifier>;
 
 struct assignment_expr : expr {
     expr_ptr target, value;

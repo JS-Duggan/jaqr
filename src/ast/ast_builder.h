@@ -34,7 +34,7 @@ expr_ptr make_update_call_expr(expr_ptr callee, update_arguments arguments);
 
 expr_ptr make_literal(literal_val v);
 
-expr_ptr make_variable(std::string l);
+identifier_ptr make_identifier(std::string l);
 
 expr_ptr make_assignment_expr(expr_ptr lhs, expr_ptr rhs);
 
@@ -49,26 +49,26 @@ expr_ptr make_this_expr();
 // ---- Declarations ----
 
 // Returns the concrete type so for_stmt can take it; converts to decl_ptr implicitly.
-variable_decl_ptr make_variable_decl(std::string n, type_ptr type, expr_ptr init = nullptr,
+variable_decl_ptr make_variable_decl(identifier_ptr n, type_ptr type, expr_ptr init = nullptr,
                                      variable_storage s = variable_storage::ORDINARY,
                                      bool imut = false);
 
 // Ordinary function or method, with an explicit return type.
 // Returns the concrete type so impl_decl can take it; converts to decl_ptr implicitly.
-function_decl_ptr make_function_decl(std::string n, std::vector<parameter> params, type_ptr result,
+function_decl_ptr make_function_decl(identifier_ptr n, std::vector<parameter> params, type_ptr result,
                                      block_ptr b);
 
 // Free update function, with ordinary and state parameter lists.
-function_decl_ptr make_update_function_decl(std::string n, std::vector<parameter> params,
+function_decl_ptr make_update_function_decl(identifier_ptr n, std::vector<parameter> params,
                                             std::vector<parameter> state, block_ptr b);
 
 // Update method: its enclosing impl supplies the implicit state receiver.
-function_decl_ptr make_update_method_decl(std::string n, std::vector<parameter> params,
+function_decl_ptr make_update_method_decl(identifier_ptr n, std::vector<parameter> params,
                                           block_ptr b);
 
-decl_ptr make_struct_decl(std::string n, std::vector<field_decl> f);
+decl_ptr make_struct_decl(identifier_ptr n, std::vector<field_decl> f);
 
-decl_ptr make_impl_decl(std::string n, std::vector<function_decl_ptr> m);
+decl_ptr make_impl_decl(identifier_ptr n, std::vector<function_decl_ptr> m);
 
 decl_ptr make_invariant_decl(expr_ptr c);
 
