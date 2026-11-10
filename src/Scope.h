@@ -7,7 +7,6 @@
 
 #include "Symbol.h"
 
-using namespace std; // TODO: probably dont use this
 
 // define scope using tree, to know the relationships between symbols and which
 // have been declared
