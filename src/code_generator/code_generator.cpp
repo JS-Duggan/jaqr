@@ -325,18 +325,72 @@ void code_generator::visit(const for_stmt &node) {
     node.body->accept(*this);
 }
 void code_generator::visit(const step_stmt &node) {
+    // leaving for now, will come back later
 }
 
 // Declarations
 void code_generator::visit(const variable_decl &node) {
+    if (node.immutable)
+        loc.back() += "const ";
+    node.declared_type->accept(*this);
+    loc.back() += " " + node.name;
+
+    if (node.initializer) {
+        loc.back() += " = ";
+        node.initializer->accept(*this);
+    }
 }
+
 void code_generator::visit(const function_decl &node) {
+    node.return_type->accept(*this);
+    loc.back() += " " + node.name;
+    loc.back() += "(";
+
+    bool first = true;
+    for (const auto &param : node.ordinary_parameters) {
+        if (!first) {
+            loc.back() += ", ";
+        }
+        first = false;
+
+        param.declared_type->accept(*this);
+        loc.back() += " " + param.name;
+    }
+
+    for (const auto &param : node.state_parameters) {
+        if (!first) {
+            loc.back() += ", ";
+        }
+        first = false;
+
+        param.declared_type->accept(*this);
+        loc.back() += " &" + param.name;
+    }
+
+    loc.back() += ") ";
+    node.body->accept(*this);
 }
+
 void code_generator::visit(const struct_decl &node) {
+    loc.back() += "struct " + node.name + " {";
+    for (const auto &field : node.fields) {
+        loc.emplace_back();
+        field.declared_type->accept(*this);
+        loc.back() += " " + field.name + ";";
+    }
+    loc.emplace_back("};");
+    loc.emplace_back();
+
+    // function declarations (no body) to go here:
 }
+
 void code_generator::visit(const impl_decl &node) {
+    for (const auto &fn : node.methods) {
+        fn->accept(*this);
+    }
 }
 void code_generator::visit(const invariant_decl &node) {
+    // to do
 }
 
 // Type syntax
