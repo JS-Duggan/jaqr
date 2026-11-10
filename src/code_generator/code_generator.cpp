@@ -1,4 +1,51 @@
 #include "code_generator.h"
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <variant>
+
+namespace {
+
+template <class... Ts> struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+std::string quoted_literal(std::string_view value, char quote) {
+    std::string result(1, quote);
+    for (unsigned char ch : value) {
+        switch (ch) {
+        case '\\':
+            result += "\\\\";
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        default:
+            if (ch == static_cast<unsigned char>(quote)) {
+                result += '\\';
+                result += ch;
+            } else if (ch >= 0x20 && ch <= 0x7e) {
+                result += ch;
+            } else {
+                // Three octal digits prevent following characters extending the escape.
+                result += '\\';
+                result += static_cast<char>('0' + ((ch >> 6) & 7));
+                result += static_cast<char>('0' + ((ch >> 3) & 7));
+                result += static_cast<char>('0' + (ch & 7));
+            }
+        }
+    }
+    result += quote;
+    return result;
+}
+
+} // namespace
 
 void code_generator::visit(const program &node) {
 }
@@ -139,7 +186,24 @@ void code_generator::visit(const postfix_expr &node) {
     }
     loc.back() += ")";
 }
+
 void code_generator::visit(const literal &node) {
+    loc.back() += "(";
+    std::visit(
+        overloaded{
+            [this](std::int32_t value) { loc.back() += std::to_string(value); },
+            [this](std::byte value) {
+                loc.back() += "std::byte{";
+                loc.back() += std::to_string(std::to_integer<unsigned int>(value));
+                loc.back() += "}";
+            },
+            [this](const std::string &value) { loc.back() += quoted_literal(value, '"'); },
+            [this](double value) { loc.back() += std::to_string(value); },
+            [this](char value) { loc.back() += quoted_literal(std::string_view(&value, 1), '\''); },
+            [this](bool value) { loc.back() += value ? "true" : "false"; },
+        },
+        node.value);
+    loc.back() += ")";
 }
 void code_generator::visit(const variable &node) {
 }
