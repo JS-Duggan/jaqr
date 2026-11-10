@@ -17,3 +17,9 @@
 - `just format` / `just format-check` — format / check formatting
 - `just lint` — run clang-tidy
 - `just clean` — remove build files
+
+## Source files
+
+CMake automatically includes all `.cpp` files under `src/`, including subdirectories.
+Adding or removing a source file is picked up on the next build; no changes to
+`CMakeLists.txt` are needed.
