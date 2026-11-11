@@ -4,7 +4,6 @@
 #include "../ast/declaration.h"
 #include "../ast/expression.h"
 #include "../ast/expression_base.h"
-// TODO : I dont think i ever construct source
 #include "../ast/source.h"
 #include "../ast/statement.h"
 #include "../ast/statement_base.h"
@@ -37,12 +36,21 @@ class Parser {
     }
 
   private:
+    // a point in the source text, 0-indexed like token line and column
+    struct source_position {
+        int line;
+        int col;
+    };
+
     const std::vector<token> &tokens;
     size_t cur_index;
 
     // when the parser splits one token into two (see split_dereference), this holds the second
     // half. while set, it is the current token, and consuming it does not move cur_index
     std::optional<token> split_remainder;
+
+    // just past the last consumed token, so a rule's span can end there
+    source_position prev_end{0, 0};
 
     // ---------------------------------------------------------------------------------------
     // error reporting
@@ -84,6 +92,8 @@ class Parser {
     }
 
     void advance() {
+        assert(!at_end());
+        prev_end = token_end(current());
         if (split_remainder) {
             split_remainder.reset();
             return;
@@ -106,6 +116,43 @@ class Parser {
         if (at_end())
             report_unexpected_end();
         return current();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // source spans
+    // a node's span runs from its first token to just past its last token
+    // ---------------------------------------------------------------------------------------
+
+    // just past the last char of a token. a lexeme can span lines (e.g. a string)
+    static source_position token_end(const token &tok) {
+        source_position end{tok.line, tok.column};
+        for (const char ch : tok.lexeme) {
+            if (ch == '\n') {
+                end.line++;
+                end.col = 0;
+            } else {
+                end.col++;
+            }
+        }
+        return end;
+    }
+
+    // where the current token starts. errors at the end of input
+    [[nodiscard]] source_position start_position() const {
+        const token &tok = peek();
+        return {tok.line, tok.column};
+    }
+
+    // where an already built node starts
+    static source_position start_of(const source_span &span) {
+        return {span.start_line, span.start_col};
+    }
+
+    // from start to the end of the last consumed token.
+    // call it after the rule's last token is consumed, and never in the same argument list as
+    // a parse_* call or a std::move of the node it reads from, as argument order is unspecified
+    [[nodiscard]] source_span span_from(const source_position &start) const {
+        return {start.line, start.col, prev_end.line, prev_end.col};
     }
 
     // true if the current token is of the given type (never consumes)
@@ -146,9 +193,10 @@ class Parser {
     identifier_ptr expect_identifier() {
         if (!check(token_type::IDENTIFIER) || check_main())
             report_error_at_current();
-        identifier_ptr ident = make_identifier(current().lexeme);
+        const source_position start = start_position();
+        std::string lexeme = current().lexeme;
         advance();
-        return ident;
+        return make_identifier(span_from(start), std::move(lexeme));
     }
 
     // consumes the current token, errors if it is not a binary operator. returns the operator
@@ -225,7 +273,7 @@ class Parser {
         const token &dereference = current();
         token minus{token_type::MINUS, "-", dereference.line, dereference.column + 1};
         advance();
-        split_remainder = minus;
+        split_remainder = std::move(minus);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -326,10 +374,13 @@ class Parser {
     }
 
     // globalVariableDeclaration = "define" variableDeclaration ";" ;
+    // the span covers "define" through ";"
     variable_decl_ptr parse_global_variable_declaration() {
+        const source_position start = start_position();
         expect(token_type::DEFINE);
-        variable_decl_ptr var_declaration = parse_variable_declaration();
+        variable_decl_ptr var_declaration = parse_variable_declaration(start);
         expect(token_type::SEMI_COLON);
+        var_declaration->source = span_from(start); // widen to take in the ";"
         return var_declaration;
     }
 
@@ -337,7 +388,8 @@ class Parser {
     //     = "let" binding [ "=" expression ]
     //     | "state" binding "=" expression
     //     | "imut" [ "state" ] binding "=" expression ;
-    variable_decl_ptr parse_variable_declaration() {
+    // start is where the declaration's span begins, which is before "define" for a global
+    variable_decl_ptr parse_variable_declaration(const source_position &start) {
         identifier_ptr identifier;
         type_ptr type;
         expr_ptr expression;
@@ -348,15 +400,15 @@ class Parser {
             std::tie(identifier, type) = parse_binding();
             if (match(token_type::ASSIGN))
                 expression = parse_expression();
-            return make_variable_decl(std::move(identifier), std::move(type), std::move(expression),
-                                      variable_storage::ORDINARY, false);
+            return make_variable_decl(span_from(start), std::move(identifier), std::move(type),
+                                      std::move(expression), variable_storage::ORDINARY, false);
         case token_type::STATE:
             advance();
             std::tie(identifier, type) = parse_binding();
             expect(token_type::ASSIGN);
             expression = parse_expression();
-            return make_variable_decl(std::move(identifier), std::move(type), std::move(expression),
-                                      variable_storage::STATE, false);
+            return make_variable_decl(span_from(start), std::move(identifier), std::move(type),
+                                      std::move(expression), variable_storage::STATE, false);
         case token_type::IMUT: {
             advance();
             variable_storage storage =
@@ -365,14 +417,13 @@ class Parser {
             expect(token_type::ASSIGN);
             expression = parse_expression();
 
-            return make_variable_decl(std::move(identifier), std::move(type), std::move(expression),
-                                      storage, true);
+            return make_variable_decl(span_from(start), std::move(identifier), std::move(type),
+                                      std::move(expression), storage, true);
         }
         default:
             report_error_at_current();
         }
     }
-    // TODO: return pointer?
     //  binding = IDENT ":" type ;
     [[nodiscard]] std::pair<identifier_ptr, type_ptr> parse_binding() {
         identifier_ptr identifier = expect_identifier();
@@ -387,14 +438,17 @@ class Parser {
     //     | typeName ;
     // types read left to right: [3]->int = array of 3 pointers to int
     type_ptr parse_type() {
+        const source_position start = start_position();
         switch (peek().type) {
-        case token_type::POINTER:
+        case token_type::POINTER: {
             advance();
-            return make_pointer_type(parse_type());
+            type_ptr pointee = parse_type();
+            return make_pointer_type(span_from(start), std::move(pointee));
+        }
         case token_type::SQUARE_OPEN: {
             expr_ptr size = parse_array_dimension();
             type_ptr element = parse_type();
-            return make_array_type(std::move(element), std::move(size));
+            return make_array_type(span_from(start), std::move(element), std::move(size));
         }
         default:
             return parse_type_name();
@@ -412,7 +466,7 @@ class Parser {
             return parse_primitive_type();
         case token_type::IDENTIFIER: {
             identifier_ptr name = expect_identifier();
-            return make_named_type(std::move(name->lexeme));
+            return make_named_type(name->source, std::move(name->lexeme));
         }
         default:
             report_error_at_current();
@@ -421,25 +475,29 @@ class Parser {
 
     // primitiveType = "int" | "float" | "char" | "bool" | "byte" ;
     type_ptr parse_primitive_type() {
+        primitive_type type{};
         switch (peek().type) {
         case token_type::INT:
-            advance();
-            return make_primitive_type(primitive_type::INT);
+            type = primitive_type::INT;
+            break;
         case token_type::FLOAT:
-            advance();
-            return make_primitive_type(primitive_type::FLOAT);
+            type = primitive_type::FLOAT;
+            break;
         case token_type::CHAR:
-            advance();
-            return make_primitive_type(primitive_type::CHAR);
+            type = primitive_type::CHAR;
+            break;
         case token_type::BOOL:
-            advance();
-            return make_primitive_type(primitive_type::BOOL);
+            type = primitive_type::BOOL;
+            break;
         case token_type::BYTE:
-            advance();
-            return make_primitive_type(primitive_type::BYTE);
+            type = primitive_type::BYTE;
+            break;
         default:
             report_error_at_current();
         }
+        const source_position start = start_position();
+        advance();
+        return make_primitive_type(span_from(start), type);
     }
 
     // arrayDimension = "[" expression "]" ;
@@ -453,33 +511,36 @@ class Parser {
     // a function declaration without its body
     struct function_signature {
         identifier_ptr name;
-        std::vector<param ter> parameters;
+        std::vector<parameter> parameters;
         type_ptr return_type;
     };
 
     // functionDeclaration = "fn" ( mainSignature | functionSignature ) block ;
     // "main" is an IDENTIFIER token, so the branch is picked by its lexeme
     function_decl_ptr parse_function_declaration() {
+        const source_position start = start_position();
         expect(token_type::FN);
         function_signature signature =
             check_main() ? parse_main_signature() : parse_function_signature();
         block_ptr body = parse_block();
-        return make_function_decl(std::move(signature.name), std::move(signature.parameters),
-                                  std::move(signature.return_type), std::move(body));
+        return make_function_decl(span_from(start), std::move(signature.name),
+                                  std::move(signature.parameters), std::move(signature.return_type),
+                                  std::move(body));
     }
-    // TODO: return pointer?
 
     // mainSignature = "main" "(" ")" ;
-    // main has no parameters and returns void
+    // main has no parameters and returns void.
+    // void is not written in the source, so its span is the whole "main()" signature
     function_signature parse_main_signature() {
         assert(check_main());
-        identifier_ptr name = make_identifier(current().lexeme);
+        const source_position start = start_position();
+        std::string lexeme = current().lexeme;
         advance(); // already checked to be "main"
+        identifier_ptr name = make_identifier(span_from(start), std::move(lexeme));
         expect(token_type::PARENTHESES_OPEN);
         expect(token_type::PARENTHESES_CLOSE);
-        return {std::move(name), {}, make_primitive_type(primitive_type::VOID)};
+        return {std::move(name), {}, make_primitive_type(span_from(start), primitive_type::VOID)};
     }
-    // TODO: return pointer?
 
     // functionSignature = IDENT parameterClause ":" type ;
     function_signature parse_function_signature() {
@@ -493,16 +554,16 @@ class Parser {
     // updateFunctionDeclaration = "update" "fn" IDENT parameterClause parameterClause block ;
     // first clause is the state parameters, second is the non-state parameters
     function_decl_ptr parse_update_function_declaration() {
+        const source_position start = start_position();
         expect(token_type::UPDATE);
         expect(token_type::FN);
         identifier_ptr name = expect_identifier();
         std::vector<parameter> state_parameters = parse_parameter_clause();
         std::vector<parameter> parameters = parse_parameter_clause();
         block_ptr body = parse_block();
-        return make_update_function_decl(std::move(name), std::move(parameters),
+        return make_update_function_decl(span_from(start), std::move(name), std::move(parameters),
                                          std::move(state_parameters), std::move(body));
     }
-    // TODO: return pointer?
 
     // parameterClause = "(" [ parameterList ] ")" ;
     std::vector<parameter> parse_parameter_clause() {
@@ -513,7 +574,6 @@ class Parser {
         expect(token_type::PARENTHESES_CLOSE);
         return parameters;
     }
-    // TODO: return pointer?
 
     // parameterList = binding { "," binding } ;
     std::vector<parameter> parse_parameter_list() {
@@ -527,6 +587,7 @@ class Parser {
 
     // structDeclaration = "struct" IDENT "{" { fieldDeclaration } "}" ";" ;
     decl_ptr parse_struct_declaration() {
+        const source_position start = start_position();
         expect(token_type::STRUCT);
         identifier_ptr name = expect_identifier();
         expect(token_type::CURLY_OPEN);
@@ -535,9 +596,8 @@ class Parser {
             fields.push_back(parse_field_declaration());
         expect(token_type::CURLY_CLOSE);
         expect(token_type::SEMI_COLON);
-        return make_struct_decl(std::move(name), std::move(fields));
+        return make_struct_decl(span_from(start), std::move(name), std::move(fields));
     }
-    // TODO: return pointer?
 
     // fieldDeclaration = binding ";" ;
     field_decl parse_field_declaration() {
@@ -548,6 +608,7 @@ class Parser {
 
     // implDeclaration = "impl" IDENT "{" { methodDeclaration } "}" ";" ;
     decl_ptr parse_impl_declaration() {
+        const source_position start = start_position();
         expect(token_type::IMPL);
         identifier_ptr type_name = expect_identifier();
         expect(token_type::CURLY_OPEN);
@@ -556,7 +617,7 @@ class Parser {
             methods.push_back(parse_method_declaration());
         expect(token_type::CURLY_CLOSE);
         expect(token_type::SEMI_COLON);
-        return make_impl_decl(std::move(type_name), std::move(methods));
+        return make_impl_decl(span_from(start), std::move(type_name), std::move(methods));
     }
 
     // methodDeclaration = methodFunctionDeclaration | updateMethodDeclaration ;
@@ -574,22 +635,26 @@ class Parser {
     // methodFunctionDeclaration = "fn" functionSignature block ;
     // same as functionDeclaration, but main is not allowed
     function_decl_ptr parse_method_function_declaration() {
+        const source_position start = start_position();
         expect(token_type::FN);
         function_signature signature = parse_function_signature();
         block_ptr body = parse_block();
-        return make_function_decl(std::move(signature.name), std::move(signature.parameters),
-                                  std::move(signature.return_type), std::move(body));
+        return make_function_decl(span_from(start), std::move(signature.name),
+                                  std::move(signature.parameters), std::move(signature.return_type),
+                                  std::move(body));
     }
 
     // updateMethodDeclaration = "update" "fn" IDENT parameterClause block ;
     // the clause is the non-state parameters. the enclosing impl supplies the state
     function_decl_ptr parse_update_method_declaration() {
+        const source_position start = start_position();
         expect(token_type::UPDATE);
         expect(token_type::FN);
         identifier_ptr name = expect_identifier();
         std::vector<parameter> parameters = parse_parameter_clause();
         block_ptr body = parse_block();
-        return make_update_method_decl(std::move(name), std::move(parameters), std::move(body));
+        return make_update_method_decl(span_from(start), std::move(name), std::move(parameters),
+                                       std::move(body));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -598,12 +663,13 @@ class Parser {
 
     // block = "{" { statement } "}" ;
     block_ptr parse_block() {
+        const source_position start = start_position();
         expect(token_type::CURLY_OPEN);
         std::vector<stmt_ptr> statements;
         while (!check(token_type::CURLY_CLOSE))
             statements.push_back(parse_statement());
         expect(token_type::CURLY_CLOSE);
-        return make_block_stmt(std::move(statements));
+        return make_block_stmt(span_from(start), std::move(statements));
     }
 
     // statement
@@ -618,13 +684,14 @@ class Parser {
     //     | block ;
     // declarations are wrapped in a decl_stmt
     stmt_ptr parse_statement() {
+        const source_position start = start_position();
         switch (peek().type) {
         case token_type::LET:
         case token_type::STATE:
         case token_type::IMUT: {
-            stmt_ptr declaration = make_decl_stmt(parse_variable_declaration());
-            expect(token_type::SEMI_COLON);
-            return declaration;
+            variable_decl_ptr declaration = parse_variable_declaration(start);
+            expect(token_type::SEMI_COLON); // in the statement's span, not the declaration's
+            return make_decl_stmt(span_from(start), std::move(declaration));
         }
         case token_type::RETURN:
             return parse_return_statement();
@@ -636,8 +703,10 @@ class Parser {
             return parse_for_statement();
         case token_type::STEP:
             return parse_step_statement();
-        case token_type::INV:
-            return make_decl_stmt(parse_invariant_declaration());
+        case token_type::INV: {
+            decl_ptr invariant = parse_invariant_declaration();
+            return make_decl_stmt(span_from(start), std::move(invariant));
+        }
         case token_type::CURLY_OPEN:
             return parse_block();
         default:
@@ -647,27 +716,29 @@ class Parser {
 
     // expressionStatement = expression ";" ;
     stmt_ptr parse_expression_statement() {
+        const source_position start = start_position();
         expr_ptr expression = parse_expression();
         expect(token_type::SEMI_COLON);
-        return make_expr_stmt(std::move(expression));
+        return make_expr_stmt(span_from(start), std::move(expression));
     }
 
     // returnStatement = "return" [ expression ] ";" ;
     stmt_ptr parse_return_statement() {
+        const source_position start = start_position();
         expect(token_type::RETURN);
         expr_ptr value;
         if (!check(token_type::SEMI_COLON))
             value = parse_expression();
         expect(token_type::SEMI_COLON);
-        return make_return_stmt(std::move(value));
+        return make_return_stmt(span_from(start), std::move(value));
     }
-    // TODO: double check
 
     // ifStatement
     //     = "if" "(" expression ")" block
     //       { "elif" "(" expression ")" block }
     //       [ "else" block ] ;
     stmt_ptr parse_if_statement() {
+        const source_position start = start_position();
         std::vector<conditional_branch> branches;
 
         // the if branch, then one branch per elif
@@ -683,21 +754,23 @@ class Parser {
         if (match(token_type::ELSE))
             else_body = parse_block();
 
-        return make_if_stmt(std::move(branches), std::move(else_body));
+        return make_if_stmt(span_from(start), std::move(branches), std::move(else_body));
     }
 
     // whileStatement = "while" "(" expression ")" block ;
     stmt_ptr parse_while_statement() {
+        const source_position start = start_position();
         expect(token_type::WHILE);
         expect(token_type::PARENTHESES_OPEN);
         expr_ptr condition = parse_expression();
         expect(token_type::PARENTHESES_CLOSE);
         block_ptr body = parse_block();
-        return make_while_stmt(std::move(condition), std::move(body));
+        return make_while_stmt(span_from(start), std::move(condition), std::move(body));
     }
 
     // forStatement = "for" "(" forInitializer ";" expression ";" expression ")" block ;
     stmt_ptr parse_for_statement() {
+        const source_position start = start_position();
         expect(token_type::FOR);
         expect(token_type::PARENTHESES_OPEN);
         variable_decl_ptr initializer = parse_for_initializer();
@@ -707,38 +780,41 @@ class Parser {
         expr_ptr increment = parse_expression();
         expect(token_type::PARENTHESES_CLOSE);
         block_ptr body = parse_block();
-        return make_for_stmt(std::move(initializer), std::move(condition), std::move(increment),
-                             std::move(body));
+        return make_for_stmt(span_from(start), std::move(initializer), std::move(condition),
+                             std::move(increment), std::move(body));
     }
 
     // forInitializer = "let" binding "=" expression ;
     variable_decl_ptr parse_for_initializer() {
+        const source_position start = start_position();
         expect(token_type::LET);
         auto [name, type] = parse_binding();
         expect(token_type::ASSIGN);
         expr_ptr value = parse_expression();
-        return make_variable_decl(std::move(name), std::move(type), std::move(value),
-                                  variable_storage::ORDINARY, false);
+        return make_variable_decl(span_from(start), std::move(name), std::move(type),
+                                  std::move(value), variable_storage::ORDINARY, false);
     }
 
     // stepStatement = "step" block [ "reject" block ] ;
     stmt_ptr parse_step_statement() {
+        const source_position start = start_position();
         expect(token_type::STEP);
         block_ptr body = parse_block();
         block_ptr reject_body;
         if (match(token_type::REJECT))
             reject_body = parse_block();
-        return make_step_stmt(std::move(body), std::move(reject_body));
+        return make_step_stmt(span_from(start), std::move(body), std::move(reject_body));
     }
 
     // invariantDeclaration = "inv" "{" expression "}" ";" ;
     decl_ptr parse_invariant_declaration() {
+        const source_position start = start_position();
         expect(token_type::INV);
         expect(token_type::CURLY_OPEN);
         expr_ptr condition = parse_expression();
         expect(token_type::CURLY_CLOSE);
         expect(token_type::SEMI_COLON);
-        return make_invariant_decl(std::move(condition));
+        return make_invariant_decl(span_from(start), std::move(condition));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -752,7 +828,8 @@ class Parser {
         expr_ptr target = parse_logical_or_expression();
         if (match(token_type::ASSIGN)) {
             expr_ptr value = parse_expression(); // recursion makes it right associative
-            return make_assignment_expr(std::move(target), std::move(value));
+            const source_span span = span_from(start_of(target->source));
+            return make_assignment_expr(span, std::move(target), std::move(value));
         }
         return target;
     }
@@ -765,7 +842,8 @@ class Parser {
         while (check(token_type::LOGICAL_OR)) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_logical_and_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -776,7 +854,8 @@ class Parser {
         while (check(token_type::LOGICAL_AND)) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_equality_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -787,7 +866,8 @@ class Parser {
         while (check_any({token_type::EQUAL, token_type::NOT_EQUAL})) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_relational_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -814,7 +894,8 @@ class Parser {
                 return left;
             }
             expr_ptr right = parse_bitwise_or_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -826,7 +907,8 @@ class Parser {
         while (check(token_type::BIT_OR)) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_bitwise_xor_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -837,7 +919,8 @@ class Parser {
         while (check(token_type::XOR)) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_bitwise_and_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -848,7 +931,8 @@ class Parser {
         while (check(token_type::BIT_AND)) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_shift_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -859,7 +943,8 @@ class Parser {
         while (check_any({token_type::LEFT_SHIFT, token_type::RIGHT_SHIFT})) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_additive_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -870,7 +955,8 @@ class Parser {
         while (check_any({token_type::PLUS, token_type::MINUS})) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_multiplicative_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
@@ -881,23 +967,29 @@ class Parser {
         while (check_any({token_type::MULTIPLY, token_type::DIVIDE, token_type::DIVIDE_FLOOR})) {
             const binary_op op = expect_binary_operator();
             expr_ptr right = parse_unary_expression();
-            left = make_binary_expr(op, std::move(left), std::move(right));
+            const source_span span = span_from(start_of(left->source));
+            left = make_binary_expr(span, op, std::move(left), std::move(right));
         }
         return left;
     }
 
     // unaryExpression = ( "-" | "!" ) unaryExpression | powerExpression ;
     expr_ptr parse_unary_expression() {
+        unary_op op{};
         switch (peek().type) {
         case token_type::MINUS:
-            advance();
-            return make_unary_expr(unary_op::NEGATE, parse_unary_expression());
+            op = unary_op::NEGATE;
+            break;
         case token_type::NOT:
-            advance();
-            return make_unary_expr(unary_op::LOGICAL_NOT, parse_unary_expression());
+            op = unary_op::LOGICAL_NOT;
+            break;
         default:
             return parse_power_expression();
         }
+        const source_position start = start_position();
+        advance();
+        expr_ptr operand = parse_unary_expression();
+        return make_unary_expr(span_from(start), op, std::move(operand));
     }
 
     // powerExpression = prefixExpression [ "~" unaryExpression ] ;
@@ -906,23 +998,29 @@ class Parser {
         if (check(token_type::EXPONENT)) {
             const binary_op op = expect_binary_operator();
             expr_ptr exponent = parse_unary_expression(); // recursion makes it right associative
-            return make_binary_expr(op, std::move(base), std::move(exponent));
+            const source_span span = span_from(start_of(base->source));
+            return make_binary_expr(span, op, std::move(base), std::move(exponent));
         }
         return base;
     }
 
     // prefixExpression = ( "@" | "<-" ) prefixExpression | postfixExpression ;
     expr_ptr parse_prefix_expression() {
+        unary_op op{};
         switch (peek().type) {
         case token_type::ADDRESS:
-            advance();
-            return make_unary_expr(unary_op::ADDRESS, parse_prefix_expression());
+            op = unary_op::ADDRESS;
+            break;
         case token_type::DEREFERENCE:
-            advance();
-            return make_unary_expr(unary_op::DEREFERENCE, parse_prefix_expression());
+            op = unary_op::DEREFERENCE;
+            break;
         default:
             return parse_postfix_expression();
         }
+        const source_position start = start_position();
+        advance();
+        expr_ptr operand = parse_prefix_expression();
+        return make_unary_expr(span_from(start), op, std::move(operand));
     }
 
     // postfixExpression = primaryExpression { postfixSuffix } ;
@@ -937,34 +1035,38 @@ class Parser {
     // postfixSuffix = argumentClause | "[" expression "]" | "." IDENT ;
     // applies the suffix to object, the expression before it.
     // two argument clauses in a row are one update call: f(state arguments)(arguments)
+    // the span runs from the start of object to the end of the suffix
     expr_ptr parse_postfix_suffix(expr_ptr object) {
+        const source_position start = start_of(object->source);
         switch (peek().type) {
         case token_type::PARENTHESES_OPEN: {
             arg_list arguments = parse_argument_clause();
             if (!check(token_type::PARENTHESES_OPEN))
-                return make_call_expr(std::move(object), std::move(arguments));
+                return make_call_expr(span_from(start), std::move(object), std::move(arguments));
 
             update_arguments update_call_arguments;
             update_call_arguments.state = std::move(arguments);
             update_call_arguments.regular = parse_argument_clause();
-            return make_update_call_expr(std::move(object), std::move(update_call_arguments));
+            return make_update_call_expr(span_from(start), std::move(object),
+                                         std::move(update_call_arguments));
         }
         case token_type::SQUARE_OPEN: {
             advance();
             expr_ptr index = parse_expression();
             expect(token_type::SQUARE_CLOSE);
-            return make_subscript_expr(std::move(object), std::move(index));
+            return make_subscript_expr(span_from(start), std::move(object), std::move(index));
         }
         case token_type::ACCESS: {
             advance();
             identifier_ptr member = expect_identifier();
-            return make_member_access_expr(std::move(object), std::move(member->lexeme));
+            return make_member_access_expr(span_from(start), std::move(object),
+                                           std::move(member->lexeme));
         }
         default:
             report_error_at_current();
         }
     }
-    // TODO: change type?
+
     //  argumentClause = "(" [ argumentList ] ")" ;
     arg_list parse_argument_clause() {
         expect(token_type::PARENTHESES_OPEN);
@@ -974,7 +1076,6 @@ class Parser {
         expect(token_type::PARENTHESES_CLOSE);
         return arguments;
     }
-    // TODO: change type?
 
     // argumentList = expression { "," expression } ;
     arg_list parse_argument_list() {
@@ -993,7 +1094,9 @@ class Parser {
     //     | arrayLiteral
     //     | conversionExpression
     //     | allocationExpression ;
+    // a parenthesised expression keeps the span of what is inside the parentheses
     expr_ptr parse_primary_expression() {
+        const source_position start = start_position();
         switch (peek().type) {
         case token_type::INT_LITERAL:
         case token_type::BASE_2_LITERAL:
@@ -1008,11 +1111,12 @@ class Parser {
             if (!check(token_type::CURLY_OPEN))
                 return name;
             std::vector<field_init> fields = parse_struct_initializer();
-            return make_struct_literal(std::move(name->lexeme), std::move(fields));
+            return make_struct_literal(span_from(start), std::move(name->lexeme),
+                                       std::move(fields));
         }
         case token_type::THIS:
             advance();
-            return make_this_expr();
+            return make_this_expr(span_from(start));
         case token_type::PARENTHESES_OPEN: {
             advance();
             expr_ptr expression = parse_expression();
@@ -1039,6 +1143,7 @@ class Parser {
     //     | CHAR_LITERAL | STRING_LITERAL | BOOL_LITERAL ;
     // the lexeme is turned into the value it stands for: 16bff = 255, '\n' = newline
     expr_ptr parse_literal() {
+        const source_position start = start_position();
         const token &literal_token = peek();
         literal_val value;
         switch (literal_token.type) {
@@ -1067,19 +1172,19 @@ class Parser {
             report_error_at_current();
         }
         advance();
-        return make_literal(std::move(value));
+        return make_literal(span_from(start), std::move(value));
     }
 
     // arrayLiteral = "[" [ argumentList ] "]" ;
     expr_ptr parse_array_literal() {
+        const source_position start = start_position();
         expect(token_type::SQUARE_OPEN);
         arg_list elements;
         if (!check(token_type::SQUARE_CLOSE))
             elements = parse_argument_list();
         expect(token_type::SQUARE_CLOSE);
-        return make_array_literal(std::move(elements));
+        return make_array_literal(span_from(start), std::move(elements));
     }
-    // TODO: change type?
 
     // structInitializer = "{" [ fieldInitializerList ] "}" ;
     std::vector<field_init> parse_struct_initializer() {
@@ -1090,7 +1195,6 @@ class Parser {
         expect(token_type::CURLY_CLOSE);
         return fields;
     }
-    // TODO: change type?
 
     // fieldInitializerList = fieldInitializer { "," fieldInitializer } ;
     std::vector<field_init> parse_field_initializer_list() {
@@ -1100,7 +1204,6 @@ class Parser {
             fields.push_back(parse_field_initializer());
         return fields;
     }
-    // TODO: change type?
 
     // fieldInitializer = IDENT ":" expression ;
     field_init parse_field_initializer() {
@@ -1112,22 +1215,24 @@ class Parser {
 
     // conversionExpression = primitiveType "(" expression ")" ;
     expr_ptr parse_conversion_expression() {
+        const source_position start = start_position();
         type_ptr target_type = parse_primitive_type();
         expect(token_type::PARENTHESES_OPEN);
         expr_ptr value = parse_expression();
         expect(token_type::PARENTHESES_CLOSE);
-        return make_conversion_expr(std::move(target_type), std::move(value));
+        return make_conversion_expr(span_from(start), std::move(target_type), std::move(value));
     }
 
     // allocationExpression = "new" "(" type "," expression ")" ;
     expr_ptr parse_allocation_expression() {
+        const source_position start = start_position();
         expect(token_type::NEW);
         expect(token_type::PARENTHESES_OPEN);
         type_ptr element_type = parse_type();
         expect(token_type::COMMA);
         expr_ptr count = parse_expression();
         expect(token_type::PARENTHESES_CLOSE);
-        return make_dynamic_alloc(std::move(element_type), std::move(count));
+        return make_dynamic_alloc(span_from(start), std::move(element_type), std::move(count));
     }
 };
 
