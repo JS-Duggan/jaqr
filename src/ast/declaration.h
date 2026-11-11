@@ -12,8 +12,11 @@
 #include <utility>
 #include <vector>
 
+class visitor;
+
 struct decl {
     virtual ~decl() = default;
+    virtual void accept(visitor &v) const = 0;
 
     source_span source;
 };
@@ -25,6 +28,8 @@ enum class variable_storage : std::uint8_t { ORDINARY, STATE };
 // At file scope this represents a define declaration. In a block it is wrapped
 // in decl_stmt. State and immutable declarations require an initializer.
 struct variable_decl : decl {
+    void accept(visitor &v) const override;
+
     identifier_ptr name;
     type_ptr declared_type;
     expr_ptr initializer;
@@ -51,6 +56,8 @@ struct parameter {
 enum class function_kind : std::uint8_t { ORDINARY, UPDATE };
 
 struct function_decl : decl {
+    void accept(visitor &v) const override;
+
     identifier_ptr name;
     function_kind kind;
     std::vector<parameter> ordinary_parameters;
@@ -88,6 +95,8 @@ struct field_decl {
 };
 
 struct struct_decl : decl {
+    void accept(visitor &v) const override;
+
     identifier_ptr name;
     std::vector<field_decl> fields;
 
@@ -97,6 +106,8 @@ struct struct_decl : decl {
 };
 
 struct impl_decl : decl {
+    void accept(visitor &v) const override;
+
     identifier_ptr type_name;
     std::vector<function_decl_ptr> methods;
 
@@ -107,6 +118,8 @@ struct impl_decl : decl {
 
 // Used directly at file scope, or inside decl_stmt for a local invariant.
 struct invariant_decl : decl {
+    void accept(visitor &v) const override;
+
     expr_ptr condition;
 
     explicit invariant_decl(expr_ptr c) : condition(std::move(c)) {
@@ -114,6 +127,8 @@ struct invariant_decl : decl {
 };
 
 struct program {
+    void accept(visitor &v) const;
+
     std::vector<decl_ptr> declarations;
 
     explicit program(std::vector<decl_ptr> d = {}) : declarations(std::move(d)) {

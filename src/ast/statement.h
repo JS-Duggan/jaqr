@@ -9,6 +9,8 @@
 #include <vector>
 
 struct expr_stmt : stmt {
+    void accept(visitor &v) const override;
+
     expr_ptr expression;
 
     explicit expr_stmt(expr_ptr e) : expression(std::move(e)) {
@@ -18,6 +20,8 @@ struct expr_stmt : stmt {
 // Wraps local variable declarations and invariants. The parser controls which
 // declarations are allowed in a statement position.
 struct decl_stmt : stmt {
+    void accept(visitor &v) const override;
+
     decl_ptr declaration;
 
     explicit decl_stmt(decl_ptr d) : declaration(std::move(d)) {
@@ -25,6 +29,8 @@ struct decl_stmt : stmt {
 };
 
 struct return_stmt : stmt {
+    void accept(visitor &v) const override;
+
     expr_ptr value;
 
     explicit return_stmt(expr_ptr v = nullptr) : value(std::move(v)) {
@@ -40,6 +46,8 @@ struct conditional_branch {
 };
 
 struct if_stmt : stmt {
+    void accept(visitor &v) const override;
+
     // Nonempty: the first branch is if; remaining branches are elif, in order.
     std::vector<conditional_branch> branches;
     block_ptr else_body; // Null when there is no else branch.
@@ -50,6 +58,8 @@ struct if_stmt : stmt {
 };
 
 struct while_stmt : stmt {
+    void accept(visitor &v) const override;
+
     expr_ptr condition;
     block_ptr body;
 
@@ -58,6 +68,8 @@ struct while_stmt : stmt {
 };
 
 struct for_stmt : stmt {
+    void accept(visitor &v) const override;
+
     // The current grammar requires a let declaration and all three clauses.
     variable_decl_ptr initializer;
     expr_ptr condition;
@@ -71,6 +83,8 @@ struct for_stmt : stmt {
 };
 
 struct step_stmt : stmt {
+    void accept(visitor &v) const override;
+
     block_ptr body;
     block_ptr reject_body; // Null when there is no reject branch.
 

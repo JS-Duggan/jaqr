@@ -35,6 +35,8 @@ enum class binary_op : std::uint8_t {
 };
 
 struct binary_expr : expr {
+    void accept(visitor &v) const override;
+
     binary_op operation;
     expr_ptr left, right;
 
@@ -46,6 +48,8 @@ struct binary_expr : expr {
 enum class unary_op : std::uint8_t { NEGATE, DEREFERENCE, ADDRESS, LOGICAL_NOT };
 
 struct unary_expr : expr {
+    void accept(visitor &v) const override;
+
     unary_op operation;
     expr_ptr right;
 
@@ -69,6 +73,8 @@ using postfix_arg = std::variant<expr_ptr,        // Index expression
 enum class postfix_op : std::uint8_t { SUBSCRIPT, MEMBER_ACCESS, FUNCT_CALL, UPDATE_CALL };
 
 struct postfix_expr : expr {
+    void accept(visitor &v) const override;
+
     postfix_op op;
     expr_ptr obj;
     postfix_arg arg;
@@ -95,6 +101,8 @@ struct postfix_expr : expr {
 };
 using literal_val = std::variant<std::int32_t, std::byte, std::string, double, char, bool>;
 struct literal : expr {
+    void accept(visitor &v) const override;
+
     literal_val value;
 
     literal(literal_val v) : value(std::move(v)) {
@@ -102,6 +110,8 @@ struct literal : expr {
 };
 
 struct identifier : expr {
+    void accept(visitor &v) const override;
+
     std::string lexeme;
     explicit identifier(std::string l) : lexeme(std::move(l)) {
     }
@@ -110,6 +120,8 @@ struct identifier : expr {
 using identifier_ptr = std::unique_ptr<identifier>;
 
 struct assignment_expr : expr {
+    void accept(visitor &v) const override;
+
     expr_ptr target, value;
 
     assignment_expr(expr_ptr lhs, expr_ptr rhs) : target(std::move(lhs)), value(std::move(rhs)) {
@@ -117,6 +129,8 @@ struct assignment_expr : expr {
 };
 
 struct array_literal : expr {
+    void accept(visitor &v) const override;
+
     arg_list elements;
 
     array_literal(arg_list e) : elements(std::move(e)) {
@@ -129,6 +143,8 @@ struct field_init {
 };
 
 struct struct_literal : expr {
+    void accept(visitor &v) const override;
+
     std::string struct_type;
     std::vector<field_init> init_list;
 
@@ -138,6 +154,8 @@ struct struct_literal : expr {
 };
 
 struct dynamic_alloc : expr {
+    void accept(visitor &v) const override;
+
     type_ptr element_type;
     expr_ptr count;
 
@@ -147,6 +165,8 @@ struct dynamic_alloc : expr {
 };
 
 struct conversion_expr : expr {
+    void accept(visitor &v) const override;
+
     type_ptr target_type;
     expr_ptr value;
 
@@ -155,4 +175,6 @@ struct conversion_expr : expr {
     }
 };
 
-struct this_expr : expr {};
+struct this_expr : expr {
+    void accept(visitor &v) const override;
+};
