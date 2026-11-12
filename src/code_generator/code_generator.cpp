@@ -186,9 +186,7 @@ void code_generator::visit(const postfix_expr &node) {
             if (!first)
                 loc.back() += ',';
             first = false;
-            loc.back() += "&(";
             a->accept(*this);
-            loc.back() += ')';
         }
         loc.back() += ')';
         break;
