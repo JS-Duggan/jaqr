@@ -21,7 +21,7 @@ starting at line 0, col 0:
     add token_start..stop to the token list
     restart at the start node with token_start = stop
 
-stopping in a non-accepting state is always an error, never a fall back to an earlier
+stopping in a non-accepting state is always an error, never a fallback to an earlier
 accepting state. so 16b is an error, not INT_LITERAL '16' then IDENTIFIER 'b'.
 */
 
@@ -30,7 +30,7 @@ struct position {
     size_t col;
 };
 
-// returns the node reached by following next char, or nullptr if node is a dead state
+// returns the node reached by following ch, or nullptr if no edge of node matches ch
 static const graph_node *next_state(const graph_node *node, char ch) {
     const graph_node *next = nullptr;
 

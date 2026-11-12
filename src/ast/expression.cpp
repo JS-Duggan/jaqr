@@ -18,7 +18,7 @@ void literal::accept(visitor &v) const {
     v.visit(*this);
 }
 
-void variable::accept(visitor &v) const {
+void identifier::accept(visitor &v) const {
     v.visit(*this);
 }
 

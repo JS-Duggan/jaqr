@@ -71,12 +71,12 @@ struct for_stmt : stmt {
     void accept(visitor &v) const override;
 
     // The current grammar requires a let declaration and all three clauses.
-    std::unique_ptr<variable_decl> initializer;
+    variable_decl_ptr initializer;
     expr_ptr condition;
     expr_ptr increment;
     block_ptr body;
 
-    for_stmt(std::unique_ptr<variable_decl> init, expr_ptr test, expr_ptr next, block_ptr b)
+    for_stmt(variable_decl_ptr init, expr_ptr test, expr_ptr next, block_ptr b)
         : initializer(std::move(init)), condition(std::move(test)), increment(std::move(next)),
           body(std::move(b)) {
     }

@@ -5,8 +5,6 @@ statement
     = variableDeclaration ";"
     | expressionStatement
     | returnStatement
-    | printStatement
-    | scanStatement
     | ifStatement
     | whileStatement
     | forStatement
@@ -15,17 +13,13 @@ statement
     | block ;
 
 
+(* print and scan are standard library functions, called like any other function: print(x); *)
 expressionStatement
     = expression ";" ;
 
+(* the value is optional, so main and update functions can return early: return; *)
 returnStatement
-    = "return" expression ";" ;
-
-printStatement
-    = "print" "(" [ argumentList ] ")" ";" ;
-
-scanStatement
-    = "scan" ">>" expression { ">>" expression } ";" ;
+    = "return" [ expression ] ";" ;
 
 
 ifStatement

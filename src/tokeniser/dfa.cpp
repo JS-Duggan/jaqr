@@ -157,13 +157,6 @@ const graph_node kw_new = keyword(token_type::NEW);
 const graph_node kw_prefix_ne = prefix({{'w', &kw_new}});
 const graph_node kw_prefix_n = prefix({{'e', &kw_prefix_ne}});
 
-// print
-const graph_node kw_print = keyword(token_type::PRINT);
-const graph_node kw_prefix_prin = prefix({{'t', &kw_print}});
-const graph_node kw_prefix_pri = prefix({{'n', &kw_prefix_prin}});
-const graph_node kw_prefix_pr = prefix({{'i', &kw_prefix_pri}});
-const graph_node kw_prefix_p = prefix({{'r', &kw_prefix_pr}});
-
 // reject, return
 const graph_node kw_reject = keyword(token_type::REJECT);
 const graph_node kw_prefix_rejec = prefix({{'t', &kw_reject}});
@@ -176,10 +169,7 @@ const graph_node kw_prefix_ret = prefix({{'u', &kw_prefix_retu}});
 const graph_node kw_prefix_re = prefix({{'j', &kw_prefix_rej}, {'t', &kw_prefix_ret}});
 const graph_node kw_prefix_r = prefix({{'e', &kw_prefix_re}});
 
-// scan, state, step, struct
-const graph_node kw_scan = keyword(token_type::SCAN);
-const graph_node kw_prefix_sca = prefix({{'n', &kw_scan}});
-const graph_node kw_prefix_sc = prefix({{'a', &kw_prefix_sca}});
+// state, step, struct
 const graph_node kw_state = keyword(token_type::STATE);
 const graph_node kw_prefix_stat = prefix({{'e', &kw_state}});
 const graph_node kw_prefix_sta = prefix({{'t', &kw_prefix_stat}});
@@ -194,7 +184,7 @@ const graph_node kw_prefix_st = prefix({
     {'e', &kw_prefix_ste},
     {'r', &kw_prefix_str},
 });
-const graph_node kw_prefix_s = prefix({{'c', &kw_prefix_sc}, {'t', &kw_prefix_st}});
+const graph_node kw_prefix_s = prefix({{'t', &kw_prefix_st}});
 
 // this, true
 const graph_node kw_this = keyword(token_type::THIS);
@@ -413,7 +403,6 @@ const graph_node start{
         {is('i'), &kw_prefix_i},
         {is('l'), &kw_prefix_l},
         {is('n'), &kw_prefix_n},
-        {is('p'), &kw_prefix_p},
         {is('r'), &kw_prefix_r},
         {is('s'), &kw_prefix_s},
         {is('t'), &kw_prefix_t},
