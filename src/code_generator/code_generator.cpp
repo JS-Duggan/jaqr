@@ -1,5 +1,6 @@
 #include "code_generator.h"
 
+#include <format>
 #include <stdexcept>
 #include <string>
 #include <string_view>
