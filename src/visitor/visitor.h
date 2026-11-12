@@ -16,7 +16,7 @@ class visitor {
     virtual void visit(const unary_expr &node) = 0;
     virtual void visit(const postfix_expr &node) = 0;
     virtual void visit(const literal &node) = 0;
-    virtual void visit(const variable &node) = 0;
+    virtual void visit(const identifier &node) = 0;
     virtual void visit(const assignment_expr &node) = 0;
     virtual void visit(const array_literal &node) = 0;
     virtual void visit(const struct_literal &node) = 0;

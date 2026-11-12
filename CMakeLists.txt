@@ -9,6 +9,9 @@ add_executable(jaqr
     src/ast/type.cpp
     src/tokeniser/dfa.cpp
     src/tokeniser/tokeniser.cpp
+    src/parser/parser.cpp
+    src/ast/ast_builder.cpp
+
 )
 set_target_properties(jaqr PROPERTIES
     CXX_STANDARD 20
