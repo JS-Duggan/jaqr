@@ -49,10 +49,15 @@ std::string quoted_literal(std::string_view value, char quote) {
 } // namespace
 
 void code_generator::visit(const program &node) {
+    loc.clear();
+    loc.emplace_back();
+
+    for (const auto &declr : node.declarations) {
+        declr->accept(*this);
+    }
 }
 
 // Expressions:
-
 const char *operator_text(binary_op op) {
     switch (op) {
     case binary_op::LOGICAL_OR:
@@ -332,6 +337,7 @@ void code_generator::visit(const for_stmt &node) {
     loc.back() += ") ";
     node.body->accept(*this);
 }
+
 void code_generator::visit(const step_stmt &node) {
     // leaving for now, will come back later
 }
@@ -405,6 +411,7 @@ void code_generator::visit(const impl_decl &node) {
         fn->accept(*this);
     }
 }
+
 void code_generator::visit(const invariant_decl &node) {
     // to do
 }
