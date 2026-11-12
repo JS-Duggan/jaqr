@@ -1,3 +1,5 @@
 build/
 CMakeUserPresets.json
 .format-venv/
+TODO.md
+*.out
