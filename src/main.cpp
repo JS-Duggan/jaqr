@@ -1,9 +1,11 @@
 #include <exception>
-#include <expected>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+#include "parser/parser.h"
+#include "semantic/semantic.h"
+#include "tokeniser/tokeniser.h"
 
 int main(int argc, char *argv[]) {
     try {
@@ -27,6 +29,8 @@ int main(int argc, char *argv[]) {
             data.emplace_back(line.begin(), line.end());
             data.back().push_back('\n');
         }
+        ast_root_ptr root = parse(tokenise(data));
+        analyse(*root);
     } catch (const std::exception &error) {
         std::cerr << "Error: " << error.what() << '\n';
         return 1;

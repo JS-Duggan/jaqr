@@ -58,13 +58,14 @@ class Parser {
 
     [[noreturn]] static void report_unexpected_token(const token &errored_token) {
         throw std::runtime_error(
-            std::format("Parser error: unexpected token '{}' of type {} at line {}, column {}",
+            std::format("SYN001: unexpected token '{}' of type {} at line {}, column {}",
                         errored_token.lexeme, static_cast<int>(errored_token.type),
                         errored_token.line, errored_token.column));
     }
 
-    [[noreturn]] static void report_unexpected_end() {
-        throw std::runtime_error("Parser error: unexpected end of input");
+    [[noreturn]] void report_unexpected_end() const {
+        throw std::runtime_error(std::format("SYN001: unexpected end of input at line {}, column {}",
+                                             prev_end.line, prev_end.col));
     }
 
     // errors on whatever is at the current position (a token, or the end of input)
@@ -77,7 +78,7 @@ class Parser {
     // a literal whose value does not fit its type, e.g. an int literal above 2147483647
     [[noreturn]] static void report_literal_out_of_range(const token &literal_token) {
         throw std::runtime_error(
-            std::format("Parser error: literal '{}' is out of range at line {}, column {}",
+            std::format("SYN002: literal '{}' is out of range at line {}, column {}",
                         literal_token.lexeme, literal_token.line, literal_token.column));
     }
 
