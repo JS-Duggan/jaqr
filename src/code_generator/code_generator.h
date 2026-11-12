@@ -19,7 +19,7 @@ class code_generator : visitor {
     void visit(const unary_expr &node) override;
     void visit(const postfix_expr &node) override;
     void visit(const literal &node) override;
-    void visit(const variable &node) override;
+    void visit(const identifier &node) override;
     void visit(const assignment_expr &node) override;
     void visit(const array_literal &node) override;
     void visit(const struct_literal &node) override;

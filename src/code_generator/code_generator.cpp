@@ -207,7 +207,7 @@ void code_generator::visit(const literal &node) {
     loc.back() += ')';
 }
 
-void code_generator::visit(const variable &node) {
+void code_generator::visit(const identifier &node) {
     loc.back() += "(" + node.lexeme + ")";
 }
 
@@ -341,7 +341,7 @@ void code_generator::visit(const variable_decl &node) {
     if (node.immutable)
         loc.back() += "const ";
     node.declared_type->accept(*this);
-    loc.back() += " " + node.name;
+    loc.back() += " " + node.name->lexeme;
 
     if (node.initializer) {
         loc.back() += " = ";
@@ -350,7 +350,7 @@ void code_generator::visit(const variable_decl &node) {
 }
 
 void code_generator::visit(const function_decl &node) {
-    if (node.name == "main") {
+    if (node.name->lexeme == "main") {
         loc.back() += "int";
     } else if (node.kind == function_kind::UPDATE) {
         loc.back() += "void";
@@ -359,7 +359,7 @@ void code_generator::visit(const function_decl &node) {
     } else {
         throw std::invalid_argument("Ordinary function requires a return type");
     }
-    loc.back() += " " + node.name;
+    loc.back() += " " + node.name->lexeme;
     loc.back() += '(';
 
     bool first = true;
@@ -388,7 +388,7 @@ void code_generator::visit(const function_decl &node) {
 }
 
 void code_generator::visit(const struct_decl &node) {
-    loc.back() += "struct " + node.name + " {";
+    loc.back() += "struct " + node.name->lexeme + " {";
     for (const auto &field : node.fields) {
         loc.emplace_back();
         field.declared_type->accept(*this);
