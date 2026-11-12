@@ -90,6 +90,10 @@ const char *operator_text(binary_op op) {
         return " < ";
     case binary_op::LTE:
         return " <= ";
+    case binary_op::LEFT_SHIFT:
+        return " << ";
+    case binary_op::RIGHT_SHIFT:
+        return " >> ";
     default:
         throw std::invalid_argument("Operator requires special handling");
     }
