@@ -9,9 +9,10 @@
 #include <string>
 
 class code_generator : visitor {
-    std::vector<std::string> loc;
-
   public:
+    std::vector<std::string> loc;
+    std::vector<std::string> gen_code(const program &node);
+
     void visit(const program &node) override;
 
     // Expressions:
