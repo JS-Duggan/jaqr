@@ -208,7 +208,7 @@ void code_generator::visit(const literal &node) {
                 loc.back() += '}';
             },
             [this](const std::string &value) { loc.back() += quoted_literal(value, '"'); },
-            [this](double value) { loc.back() += std::to_string(value); },
+            [this](double value) { loc.back() += std::format("{0.17}", value); },
             [this](char value) { loc.back() += quoted_literal(std::string_view(&value, 1), '\''); },
             [this](bool value) { loc.back() += value ? "true" : "false"; },
         },
