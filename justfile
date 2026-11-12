@@ -27,7 +27,7 @@ format: format-tool
 format-check: format-tool
     find src -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec .format-venv/bin/clang-format --dry-run --Werror {} +
 
-lint: configure
+lint *args: configure
     #!/bin/sh
     set -eu
     if command -v clang-tidy >/dev/null 2>&1; then
@@ -46,7 +46,7 @@ lint: configure
         SDKROOT="${SDKROOT:-$(xcrun --show-sdk-path)}"
         export SDKROOT
     fi
-    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {} +
+    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {{args}} {} +
 
 clean:
     cmake -E rm -rf build
