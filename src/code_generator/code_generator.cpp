@@ -52,6 +52,11 @@ std::string quoted_literal(std::string_view value, char quote) {
 void code_generator::visit(const program &node) {
     for (const auto &declr : node.declarations) {
         declr->accept(*this);
+
+        if (dynamic_cast<const variable_decl *>(declr.get())) {
+            loc.back() += ';';
+            loc.emplace_back();
+        }
     }
 }
 
