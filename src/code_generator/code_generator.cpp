@@ -1,5 +1,5 @@
 #include "code_generator.h"
-#include <new>
+
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -30,9 +30,9 @@ std::string quoted_literal(std::string_view value, char quote) {
         default:
             if (ch == static_cast<unsigned char>(quote)) {
                 result += '\\';
-                result += ch;
+                result += static_cast<char>(ch);
             } else if (ch >= 0x20 && ch <= 0x7e) {
-                result += ch;
+                result += static_cast<char>(ch);
             } else {
                 // Three octal digits prevent following characters extending the escape.
                 result += '\\';
