@@ -146,15 +146,8 @@ int execute(const std::vector<fs::path> &arguments) {
 }
 } // namespace
 
-int run_generated(const std::vector<std::string> &code) {
-    const auto compiler = find_compiler();
-    temporary_directory temp;
-    const auto source = temp.path / "program.cpp";
-#ifdef _WIN32
-    const auto program = temp.path / "program.exe";
-#else
-    const auto program = temp.path / "program";
-#endif
+int run_generated(const std::vector<std::string> &code, const std::string &output_name) {
+    const auto source = fs::absolute(output_name);
     {
         std::ofstream output(source);
         if (!output)
@@ -167,6 +160,13 @@ int run_generated(const std::vector<std::string> &code) {
             throw std::runtime_error("Could not finish generated C++");
     }
 
+    const auto compiler = find_compiler();
+    temporary_directory temp;
+#ifdef _WIN32
+    const auto program = temp.path / "program.exe";
+#else
+    const auto program = temp.path / "program";
+#endif
     const int compiled =
         execute({compiler, "-std=c++20", "-I", JAQR_RUNTIME_DIR, source, "-o", program});
     return compiled ? compiled : execute({program});
