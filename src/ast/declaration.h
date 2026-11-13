@@ -110,7 +110,6 @@ struct impl_decl : decl {
 
     identifier_ptr type_name;
     std::vector<function_decl_ptr> methods;
-    std::vector<const variable_decl *> state_vars;
 
     impl_decl(identifier_ptr n, std::vector<function_decl_ptr> m)
         : type_name(std::move(n)), methods(std::move(m)) {
@@ -121,6 +120,7 @@ struct impl_decl : decl {
 struct invariant_decl : decl {
     void accept(visitor &v) const override;
 
+    std::vector<const variable_decl *> state_vars;
     expr_ptr condition;
 
     explicit invariant_decl(expr_ptr c) : condition(std::move(c)) {
