@@ -6,8 +6,9 @@ configure:
 build: configure
     cmake --build --preset debug
 
-test: build
-    ctest --test-dir build/debug --output-on-failure
+[positional-arguments]
+run source: build
+    ./build/debug/jaqr "$1"
 
 release:
     cmake --preset release
@@ -46,8 +47,7 @@ lint *args: configure
         SDKROOT="${SDKROOT:-$(xcrun --show-sdk-path)}"
         export SDKROOT
     fi
-    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {{args}} {} +
+    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {{ args }} {} +
 
 clean:
     cmake -E rm -rf build
-
