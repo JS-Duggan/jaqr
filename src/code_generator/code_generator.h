@@ -4,6 +4,7 @@
 #include "../ast/expression.h"
 #include "../ast/statement.h"
 #include "../ast/type.h"
+#include "../optimizer/optimizer.h"
 #include "../visitor/visitor.h"
 
 #include <string>
@@ -31,6 +32,9 @@ class code_generator : visitor {
     std::size_t next_step = 0;
     std::size_t step_scope_depth = 0;
     bool in_update_function = false;
+    optimization_plan optimizations;
+
+    bool emit_constant(const expr &node);
 
     const state_binding *find_binding(const std::string &name) const;
     std::string state_value(const void *identity, const std::string &name) const;
@@ -40,7 +44,7 @@ class code_generator : visitor {
     code_generator(struct_impls_t &imp, state_invs_t &inv) : impls(imp), invs(inv) {
     }
 
-    std::vector<std::string> gen_code(const program &node);
+    std::vector<std::string> gen_code(const program &node, optimization_options options = {});
 
     void visit(const program &node) override;
 

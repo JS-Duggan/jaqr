@@ -10,3 +10,22 @@ set_target_properties(jaqr PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_executable(optimizer_tests
+        tests/optimizer.cpp
+        src/optimizer/optimizer.cpp
+        src/code_generator/code_generator.cpp
+        src/ast/declaration.cpp
+        src/ast/expression.cpp
+        src/ast/statement.cpp
+        src/ast/type.cpp
+    )
+    target_include_directories(optimizer_tests PRIVATE src)
+    target_compile_features(optimizer_tests PRIVATE cxx_std_20)
+    add_test(NAME optimizer_semantics
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer_test.py"
+            $<TARGET_FILE:optimizer_tests> "${CMAKE_CXX_COMPILER}")
+endif()

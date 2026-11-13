@@ -2,8 +2,8 @@
 
 // for de-bug output
 struct source_span {
-    int start_line;
-    int start_col;
-    int end_line;
-    int end_col;
+    int start_line = 0;
+    int start_col = 0;
+    int end_line = 0;
+    int end_col = 0;
 };

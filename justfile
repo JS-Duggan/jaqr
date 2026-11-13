@@ -50,3 +50,7 @@ lint *args: configure
 
 clean:
     cmake -E rm -rf build
+
+# Compile and execute generated-code regression tests.
+test: build
+    ctest --test-dir build/debug --output-on-failure
