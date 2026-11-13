@@ -1,0 +1,78 @@
+# Mergesort:
+# Input format:
+# n - the size of the input array
+# a_1, ..., a_n - the array to be sorted
+# Output format:
+# a_1', ..., a_n' - sorted array
+
+# Example Input:
+# 6
+# 7 2 -5 1 68 10
+# Example Output:
+# -5 1 2 7 10 68
+
+fn sort(array: ->int, buffer: ->int, l: int, r: int): int {
+    if (l >= r) {
+        return 0;
+    }
+
+    let mid: int = l + ((r - l) \ 2);
+
+    sort(array, buffer, l, mid);
+    sort(array, buffer, mid + 1, r);
+
+    let i: int = l;
+    let j: int = mid + 1;
+    let k: int = l;
+
+    # Merge the two sorted halves.
+    while (i <= mid && j <= r) {
+        if (array[i] <= array[j]) {
+            buffer[k] = array[i];
+            i = i + 1;
+        } else {
+            buffer[k] = array[j];
+            j = j + 1;
+        }
+        k = k + 1;
+    }
+
+    # Copy any remaining elements.
+    while (i <= mid) {
+        buffer[k] = array[i];
+        i = i + 1;
+        k = k + 1;
+    }
+
+    while (j <= r) {
+        buffer[k] = array[j];
+        j = j + 1;
+        k = k + 1;
+    }
+
+    # Copy the merged range back.
+    for (let x: int = l; x <= r; x = x + 1) {
+        array[x] = buffer[x];
+    }
+
+    return 0;
+}
+
+fn main() {
+    let x: int;
+    scan(x);
+    let array: ->int = new(int, x);
+    let buffer: ->int = new(int, x);
+
+    for (let y: int = 0; y < x; y = y + 1) {
+        scan(array[y]);
+    }
+
+    sort(array, buffer, 0, x - 1);
+
+    for (let y: int = 0; y < x; y = y + 1) {
+        print(array[y]);
+        print(' ');
+    }
+    print('\n');
+}

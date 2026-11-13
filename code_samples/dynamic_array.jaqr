@@ -1,0 +1,55 @@
+struct dynamic_array {
+    data: ->int;
+    size: int;
+    back: int;
+};
+
+impl dynamic_array {
+    fn init(n: int): bool {
+        this.back = 0;
+        this.size = n;
+        this.data = new(int, this.size);
+        return true;
+    }
+
+    fn resize(): bool {
+        let next: ->int = new(int, this.size * 2);
+        for (let x: int = 0; x < this.size; x = x + 1) {
+            next[x] = this.data[x];
+        }
+        this.size = this.size * 2;
+        this.data = next;
+        return true;
+    }
+
+    fn push_back(val: int): bool {
+        if (this.back == this.size) {
+            this.resize();
+        }
+        this.data[this.back] = val;
+        this.back = this.back + 1;
+        return true;
+    }
+
+    fn access(idx: int): int {
+        if (idx >= this.back) {
+            return 0;
+        }
+        return this.data[idx];
+    }
+
+    fn set(idx: int, val: int): bool {
+        if (idx >= this.back) {
+            return false;
+        }
+        this.data[idx] = val;
+        return true;
+    }
+};
+
+fn main() {
+    let d: dynamic_array;
+    d.init(5);
+    d.set(2, 5);
+    print(d.access(2));
+}

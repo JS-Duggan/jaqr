@@ -1,0 +1,23 @@
+# Invariant Example:
+# x is initialised to 5, and then an invariant is placed such that x >= 5 is enforced.
+# The user is then able to input a value, which x is set to.
+# If the value is allowed, x will be set via the step block. Otherwise, the change will be rejected and the reject branch will run
+
+
+fn main() {
+    state x: int = 5;
+    inv { x >= 5 };
+
+    let y: int;
+    scan(y);
+
+    step {
+        x = y;
+    }
+    reject {
+        print("Not Allowed, x must be greater than or equal to 5\n");
+    }
+    print("x is: ");
+    print(x);
+    print('\n');
+}
