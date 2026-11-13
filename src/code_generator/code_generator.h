@@ -7,10 +7,39 @@
 #include "../visitor/visitor.h"
 
 #include <string>
+#include <unordered_map>
+
+using struct_impls_t = std::unordered_map<std::string, std::vector<const function_decl *>>;
+using state_invs_t = std::unordered_map<std::string, std::vector<const invariant_decl *>>;
 
 class code_generator : visitor {
-  public:
+
     std::vector<std::string> loc;
+    struct_impls_t impls; // struct name to decl
+    state_invs_t invs;    // state name to invs
+    std::unordered_map<const invariant_decl *, std::string> invariant_names;
+    struct state_binding {
+        const void *identity;
+        const type_syntax *type;
+        bool state;
+        bool immutable;
+    };
+    std::vector<std::unordered_map<std::string, state_binding>> scopes;
+    std::vector<std::unordered_map<const void *, std::string>> step_values;
+    std::vector<const invariant_decl *> active_invariants;
+    std::unordered_map<std::string, const struct_decl *> structs;
+    std::size_t next_step = 0;
+    std::size_t step_scope_depth = 0;
+    bool in_update_function = false;
+
+    const state_binding *find_binding(const std::string &name) const;
+    std::string state_value(const void *identity, const std::string &name) const;
+    bool can_copy_state(const type_syntax &type) const;
+
+  public:
+    code_generator(struct_impls_t &imp, state_invs_t &inv) : impls(imp), invs(inv) {
+    }
+
     std::vector<std::string> gen_code(const program &node);
 
     void visit(const program &node) override;

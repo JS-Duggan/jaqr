@@ -120,6 +120,7 @@ struct impl_decl : decl {
 struct invariant_decl : decl {
     void accept(visitor &v) const override;
 
+    std::vector<const variable_decl *> state_vars;
     expr_ptr condition;
 
     explicit invariant_decl(expr_ptr c) : condition(std::move(c)) {
