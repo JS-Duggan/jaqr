@@ -2,6 +2,8 @@
 
 #include "../symbol_table/symbol_table.h"
 #include "../visitor/visitor.h"
+#include "builtins.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <format>
@@ -97,6 +99,9 @@ static bool compatible(const value_type &expected, const value_type &actual) {
 
 class checker final : public visitor {
     std::string filename;
+    analysis_root analysed;
+    std::vector<const variable_decl *> invariant_inputs;
+    builtin_calls builtins;
 
     [[noreturn]] void fail(const char *code, const source_span &span,
                            const std::string &message) const {
@@ -107,6 +112,7 @@ class checker final : public visitor {
         value_type type;
         bool state = false;
         bool immutable = false;
+        const variable_decl *declaration = nullptr;
     };
     struct expr_result {
         value_type type;
@@ -305,7 +311,10 @@ class checker final : public visitor {
     explicit checker(std::string filename) : filename(std::move(filename)) {
     }
 
-    void run(const program &root) {
+    analysis_root run(program_ptr ast) {
+        analysed.ast = std::move(ast);
+        const program &root = *analysed.ast;
+        builtins = resolve_builtins(root);
         global_mode = true;
         for (const decl_ptr &entry : root.declarations)
             entry->accept(*this);
@@ -336,6 +345,7 @@ class checker final : public visitor {
             if (call.state)
                 fail("SEM017", call.source, "ordinary method cannot modify state storage");
         }
+        return std::move(analysed);
     }
 
     void visit(const program &) override {
@@ -374,6 +384,13 @@ class checker final : public visitor {
         if (const binding *symbol = symbols.lookup_variable(node.lexeme)) {
             if (in_invariant && !symbol->state)
                 fail("SEM020", node.source, "invariants may read only state variables");
+            if (in_invariant) {
+                if (!symbol->declaration)
+                    fail("SEM020", node.source, "invariants cannot use state parameters yet");
+                if (std::find(invariant_inputs.begin(), invariant_inputs.end(),
+                              symbol->declaration) == invariant_inputs.end())
+                    invariant_inputs.push_back(symbol->declaration);
+            }
             result = expr_result{symbol->type, true, symbol->state, symbol->immutable};
         } else if (const auto fn = symbols.lookup_function(node.lexeme)) {
             if (in_invariant)
@@ -588,6 +605,19 @@ class checker final : public visitor {
         if (in_invariant &&
             (node.op == postfix_op::FUNCT_CALL || node.op == postfix_op::UPDATE_CALL))
             fail("SEM020", node.source, "invariants cannot call functions");
+        if (const auto builtin = builtins.find(&node); builtin != builtins.end()) {
+            const auto &args = std::get<arg_list>(node.arg);
+            evaluate(*args.front());
+            result = expr_result{value_type{builtin->second == builtin_function::scan
+                                                ? primitive_type::BOOL
+                                                : primitive_type::VOID},
+                                 false,
+                                 false,
+                                 false,
+                                 nullptr,
+                                 true};
+            return;
+        }
         const expr_result object = evaluate(*node.obj);
         switch (node.op) {
         case postfix_op::SUBSCRIPT: {
@@ -697,7 +727,7 @@ class checker final : public visitor {
         if (node.initializer)
             require(type, evaluate(*node.initializer, type, true).type, node.initializer->source);
         declare(node.name->lexeme,
-                binding{type, node.storage == variable_storage::STATE, node.immutable},
+                binding{type, node.storage == variable_storage::STATE, node.immutable, &node},
                 node.name->source);
     }
     void visit(const struct_decl &node) override {
@@ -715,9 +745,11 @@ class checker final : public visitor {
             symbols.lookup_struct(node.type_name->lexeme).value_or(nullptr);
         if (!structure)
             fail("SEM001", node.source, "unknown impl type");
-        for (const function_decl_ptr &method : node.methods)
+        for (const function_decl_ptr &method : node.methods) {
             if (!symbols.declare_method(node.type_name->lexeme, method->name->lexeme, method.get()))
                 fail("SEM002", method->source, "duplicate method");
+            analysed.impls[node.type_name->lexeme].push_back(method.get());
+        }
         const struct_decl *prior = current_struct;
         current_struct = structure;
         for (const function_decl_ptr &method : node.methods)
@@ -755,11 +787,16 @@ class checker final : public visitor {
         global_mode = prior_global_mode;
     }
     void visit(const invariant_decl &node) override {
+        invariant_inputs.clear();
         in_invariant = true;
         const value_type type = evaluate(*node.condition).type;
         if (type.shape != value_type::form::PRIMITIVE || type.primitive != primitive_type::BOOL)
             fail("SEM020", node.condition->source, "invariant condition must have type bool");
         in_invariant = false;
+        // The parsed AST is owned by analysed.ast, so its codegen metadata is mutable.
+        const_cast<invariant_decl &>(node).state_vars = invariant_inputs;
+        for (const variable_decl *input : invariant_inputs)
+            analysed.invs[input->name->lexeme].push_back(&node);
     }
     void visit(const block_stmt &node) override {
         auto block_scope = symbols.enter_scope();
@@ -824,6 +861,6 @@ class checker final : public visitor {
         }
     }
 };
-void analyse(const program &root, std::string_view filename) {
-    checker{std::string(filename)}.run(root);
+analysis_root analyse(program_ptr root, std::string_view filename) {
+    return checker{std::string(filename)}.run(std::move(root));
 }

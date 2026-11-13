@@ -1,5 +1,6 @@
 #include "code_generator/code_generator.h"
 #include "parser/parser.h"
+#include "semantic/semantic.h"
 #include "tokeniser/tokeniser.h"
 
 #include <exception>
@@ -27,13 +28,14 @@ int main(int argc, char *argv[]) {
             data.emplace_back(line.begin(), line.end());
             data.back().push_back('\n');
         }
-
-        auto root = parse(tokenise(data));
-        struct_impls_t impls;
-        state_invs_t invs;
+        auto analysed = analyse(parse(tokenise(data)), argv[1]);
+        auto &[root, impls, invs] = analysed;
         for (const auto &generated : code_generator{impls, invs}.gen_code(*root))
             if (!generated.empty())
                 std::cout << generated << '\n';
+    } catch (const semantic_error &error) {
+        std::cerr << error.what() << '\n';
+        return 1;
     } catch (const std::exception &error) {
         std::cerr << "Error: " << error.what() << '\n';
         return 1;
