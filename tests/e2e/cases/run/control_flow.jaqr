@@ -1,0 +1,52 @@
+# if / elif / else, while, for, nesting, numeric conditions
+fn sign(x: int): int {
+    if (x > 0) {
+        return 1;
+    } elif (x < 0) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+fn main() {
+    print(sign(5));
+    print(" ");
+    print(sign(-3));
+    print(" ");
+    print(sign(0));
+    print("\n");
+
+    let n: int = 3;
+    while (n) {
+        print(n);
+        n = n - 1;
+    }
+    print("\n");
+
+    let zero: float = 0.0;
+    if (zero) {
+        print("t");
+    } else {
+        print("f");
+    }
+    if (0.5) {
+        print("t");
+    }
+    print("\n");
+
+    for (let i: int = 1; i <= 3; i = i + 1) {
+        for (let j: int = 1; j <= 3; j = j + 1) {
+            print(i * j);
+            print(" ");
+        }
+    }
+    print("\n");
+
+    let count: int = 0;
+    for (let k: int = 10; k > 0; k = k - 3) {
+        count = count + 1;
+    }
+    print(count);
+    print("\n");
+}

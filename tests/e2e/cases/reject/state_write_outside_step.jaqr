@@ -1,0 +1,4 @@
+# expect: SEM017
+# state write outside a step
+define state s: int = 0;
+fn main() { s = 5; }

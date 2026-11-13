@@ -1,0 +1,5 @@
+# expect: SEM002
+# no overloading
+fn f(): int { return 1; }
+fn f(a: int): int { return a; }
+fn main() { }

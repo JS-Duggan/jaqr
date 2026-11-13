@@ -88,6 +88,13 @@ class resolver {
             const auto right = expression(binary->right.get());
             if (comparison(binary->operation))
                 return {&bool_type};
+            // Pointer arithmetic keeps the pointer's type.
+            if (binary->operation == binary_op::ADD || binary->operation == binary_op::SUBTRACT) {
+                if (dynamic_cast<const pointer_type_syntax *>(left.type))
+                    return {left.type};
+                if (dynamic_cast<const pointer_type_syntax *>(right.type))
+                    return {right.type};
+            }
             const auto *a = dynamic_cast<const primitive_type_syntax *>(left.type);
             const auto *b = dynamic_cast<const primitive_type_syntax *>(right.type);
             if (!a || !b)
@@ -187,7 +194,8 @@ class resolver {
             if (arguments.size() != 1)
                 fail(node, name + " requires exactly one argument");
             if (restricted)
-                fail(node, name + " is not allowed in a step, update function or invariant");
+                fail(node, "SEM021: " + name +
+                               " is not allowed in a step, update function or invariant");
             if (scanning) {
                 const auto &argument = arguments.front();
                 if (!argument.lvalue || !argument.writable || argument.state)
@@ -342,7 +350,7 @@ class resolver {
         } while (changed);
         for (const auto *function : restricted_calls)
             if (io_functions.contains(function))
-                throw std::invalid_argument("I/O is not allowed here through function " +
+                throw std::invalid_argument("SEM021: I/O is not allowed here through function " +
                                             function->name->lexeme);
         return std::move(calls);
     }

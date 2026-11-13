@@ -1,0 +1,4 @@
+# expect: SEM003
+# return value must match the declared type
+fn f(): int { return true; }
+fn main() { f(); }

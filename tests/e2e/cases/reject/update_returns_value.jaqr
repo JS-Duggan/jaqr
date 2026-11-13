@@ -1,0 +1,5 @@
+# expect: SEM007
+# update functions cannot return a value
+define state s: int = 0;
+update fn u(a: int)() { return 1; }
+fn main() { step { u(s)(); } }

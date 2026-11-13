@@ -1,0 +1,4 @@
+# expect: SYN001
+# the grammar requires an initialiser for state
+define state s: int;
+fn main() { }

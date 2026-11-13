@@ -1,0 +1,5 @@
+# expect: SEM020
+# invariants must be exactly bool
+define state s: int = 0;
+inv { s };
+fn main() { }

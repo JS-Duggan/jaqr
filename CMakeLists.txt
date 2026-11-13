@@ -14,6 +14,7 @@ set_target_properties(jaqr PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
+    add_subdirectory(tests)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     set(JAQR_CODEGEN_SOURCES
         src/optimizer/optimizer.cpp

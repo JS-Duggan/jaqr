@@ -1,0 +1,3 @@
+# expect: SEM003
+# pointer types must match exactly
+fn main() { let x: int = 1; let p: ->int = @x; let q: ->float = p; }

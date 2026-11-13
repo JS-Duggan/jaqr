@@ -1,0 +1,4 @@
+# expect: SEM003
+# arguments must match exactly
+fn f(a: int): int { return a; }
+fn main() { f(1.5); }

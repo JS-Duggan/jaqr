@@ -1,0 +1,3 @@
+# expect: SEM015
+# dereference needs a pointer
+fn main() { let x: int = 1; let y: int = <-x; }

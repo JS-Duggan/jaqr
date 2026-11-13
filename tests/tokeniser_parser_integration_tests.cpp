@@ -182,10 +182,9 @@ testing::AssertionResult fails_with_exactly(std::string_view source, std::string
 // the tokeniser stops at the character shown (written the way the message shows it)
 testing::AssertionResult lexer_rejects(std::string_view source, std::string_view shown,
                                        const text_position &where) {
-    return fails_with_exactly(source,
-                              std::format("Lexer error: unexpected character '{}' at line {}, "
-                                          "column {}",
-                                          shown, where.line, where.column));
+    return fails_with_exactly(source, std::format("LEX001: unexpected character '{}' at line {}, "
+                                                  "column {}",
+                                                  shown, where.line, where.column));
 }
 
 // as above, at the first place the character appears in source
@@ -197,14 +196,14 @@ testing::AssertionResult lexer_rejects(std::string_view source, std::string_view
 testing::AssertionResult lexer_rejects_end(std::string_view source, std::string_view unfinished) {
     const text_position start = position_of(source, unfinished);
     return fails_with(
-        source, "Lexer error: unexpected end of input at line ",
+        source, "LEX002: unexpected end of input at line ",
         std::format(" (unfinished token starts at line {}, column {})", start.line, start.column));
 }
 
 // the parser stops at the token with the given lexeme
 testing::AssertionResult parser_rejects_at(std::string_view source, std::string_view lexeme,
                                            const text_position &where) {
-    return fails_with(source, std::format("Parser error: unexpected token '{}' of type ", lexeme),
+    return fails_with(source, std::format("SYN001: unexpected token '{}'", lexeme),
                       std::format(" at line {}, column {}", where.line, where.column));
 }
 
@@ -220,7 +219,8 @@ testing::AssertionResult parser_rejects(std::string_view source, std::string_vie
 }
 
 testing::AssertionResult parser_rejects_end(std::string_view source) {
-    return fails_with_exactly(source, "Parser error: unexpected end of input");
+    // the message goes on to give the position just past the last token
+    return fails_with(source, "SYN001: unexpected end of input at line ", "");
 }
 
 // an expression and the dump it must give
@@ -782,14 +782,14 @@ TEST(DotsAndNumbers, IntegerTooBigForTheTokeniserToNoticeIsAParserError) {
     // the tokeniser takes any run of digits. the parser finds the value does not fit an int
     constexpr std::string_view decimal = "fn main() {\n    x = 2147483648;\n}\n";
     EXPECT_TRUE(fails_with_exactly(
-        decimal, "Parser error: literal '2147483648' is out of range at line 1, column 8"));
+        decimal, "SYN002: literal '2147483648' is out of range at line 1, column 8"));
     EXPECT_TRUE(fails_with(in_main("x = 16b80000000;"),
-                           "Parser error: literal '16b80000000' is out of range", "column 16"));
+                           "SYN002: literal '16b80000000' is out of range", "column 16"));
     EXPECT_TRUE(fails_with(in_main(std::format("x = 2b{};", repeated("1", 32))),
-                           "Parser error: literal '2b1111", "column 16"));
+                           "SYN002: literal '2b1111", "column 16"));
     // a literal has no sign, so the most negative int cannot be written directly
     EXPECT_TRUE(fails_with(in_main("x = -2147483648;"),
-                           "Parser error: literal '2147483648' is out of range", "column 17"));
+                           "SYN002: literal '2147483648' is out of range", "column 17"));
 }
 
 TEST(DotsAndNumbers, LettersStraightAfterANumberAreLexerErrors) {
@@ -1547,7 +1547,7 @@ TEST(LexerErrors, StrayCharacterInsideValidCode) {
     EXPECT_TRUE(lexer_rejects(source, "$"));
     // spelt out once, so the position helper is checked against a hand count
     EXPECT_TRUE(
-        fails_with_exactly(source, "Lexer error: unexpected character '$' at line 2, column 19"));
+        fails_with_exactly(source, "LEX001: unexpected character '$' at line 2, column 19"));
 }
 
 TEST(LexerErrors, WinOverEarlierSyntaxErrors) {
@@ -1574,13 +1574,12 @@ TEST(LexerErrors, PositionAfterTabsCommentsAndAMultiLineString) {
 TEST(LexerErrors, UnterminatedStringRunsToTheEndOfTheInput) {
     constexpr std::string_view source = "fn main() {\n    print(\"abc);\n}\n";
     EXPECT_TRUE(lexer_rejects_end(source, "\"abc"));
-    EXPECT_TRUE(fails_with_exactly(source,
-                                   "Lexer error: unexpected end of input at line 2, column 2 "
-                                   "(unfinished token starts at line 1, column 10)"));
+    EXPECT_TRUE(fails_with_exactly(source, "LEX002: unexpected end of input at line 2, column 2 "
+                                           "(unfinished token starts at line 1, column 10)"));
 
     constexpr std::string_view no_newline = "fn main() { print(\"abc";
     EXPECT_TRUE(fails_with_exactly(no_newline,
-                                   "Lexer error: unexpected end of input at line 0, column 22 "
+                                   "LEX002: unexpected end of input at line 0, column 22 "
                                    "(unfinished token starts at line 0, column 18)"));
 }
 
@@ -1613,9 +1612,7 @@ TEST(ParserErrors, MissingSemicolonIsReportedAtTheNextToken) {
 }
 )";
     EXPECT_TRUE(parser_rejects_at(source, "let", {2, 4}));
-    EXPECT_TRUE(fails_with_exactly(
-        source, std::format("Parser error: unexpected token 'let' of type {} at line 2, column 4",
-                            static_cast<int>(token_type::LET))));
+    EXPECT_TRUE(fails_with_exactly(source, "SYN001: unexpected token 'let' at line 2, column 4"));
 }
 
 TEST(ParserErrors, PositionOnTheRightLineOfALongerProgram) {

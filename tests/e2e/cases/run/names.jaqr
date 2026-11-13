@@ -1,0 +1,22 @@
+# Identifiers that are C++ keywords or library names must not collide
+struct vector {
+    size: int;
+};
+
+fn template(class: int): int {
+    return class + 1;
+}
+
+fn main() {
+    let namespace: int = 1;
+    let std: int = 2;
+    let runtime: int = 3;
+    let _x: int = 4;
+    let jaqr_class: int = 5;
+    let delete: int = 6;
+    let v: vector = vector{size: 7};
+    print(namespace + std + runtime + _x + jaqr_class + delete + v.size);
+    print(" ");
+    print(template(41));
+    print("\n");
+}

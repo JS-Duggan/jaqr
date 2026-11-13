@@ -1,0 +1,12 @@
+# A multi-dimensional array initialised from a nested array literal
+fn main() {
+    let grid: [2][3]int = [[1, 2, 3], [4, 5, 6]];
+    print(grid[0][0] + grid[0][2] + grid[1][1]);
+    print(" ");
+    let jagged: [2][3]int = [[7], [8, 9]];
+    print(jagged[0][0]);
+    print(jagged[0][1]);
+    print(jagged[1][1]);
+    print(jagged[1][2]);
+    print("\n");
+}

@@ -1,0 +1,4 @@
+# expect: SEM006
+# wrong number of arguments
+fn f(a: int): int { return a; }
+fn main() { f(1, 2); }

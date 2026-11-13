@@ -1,0 +1,4 @@
+# expect: SEM016
+# cannot alias state through a pointer
+define state s: int = 0;
+fn main() { let p: ->int = @s; }

@@ -1,0 +1,4 @@
+# expect: SEM007
+# a non-void function must return a value
+fn f(): int { return; }
+fn main() { f(); }

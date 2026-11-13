@@ -1,0 +1,5 @@
+# expect: SEM021
+# I/O is propagated through called functions
+define state s: int = 0;
+fn say(): int { print(1); return 0; }
+fn main() { step { say(); } }

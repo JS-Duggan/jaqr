@@ -1,0 +1,33 @@
+# Update methods on struct state, invariants over struct fields
+struct Counter {
+    value: int;
+    limit: int;
+};
+
+impl Counter {
+    fn remaining(): int {
+        return this.limit - this.value;
+    }
+    update fn bump(by: int) {
+        this.value = this.value + by;
+    }
+};
+
+define state c: Counter = Counter{value: 0, limit: 10};
+
+inv { c.value <= c.limit };
+
+fn main() {
+    step { c.bump(4); }
+    print(c.remaining());
+    print("\n");
+    step { c.bump(20); } reject { print("over limit\n"); }
+    print(c.value);
+    print("\n");
+    step {
+        c.bump(3);
+        c.bump(3);
+    }
+    print(c.value);
+    print("\n");
+}

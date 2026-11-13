@@ -1,0 +1,4 @@
+# Smallest complete program: string literal with an escape
+fn main() {
+    print("Hello, Step!\n");
+}

@@ -1,0 +1,6 @@
+# expect: SEM001
+# undeclared names are reported inside call arguments
+fn show(v: int): int {
+    return v;
+}
+fn main() { show(y); }

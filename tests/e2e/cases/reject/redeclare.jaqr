@@ -1,0 +1,6 @@
+# expect: SEM002
+# no redeclaration in the same scope
+fn main() {
+    let x: int = 1;
+    let x: int = 2;
+}

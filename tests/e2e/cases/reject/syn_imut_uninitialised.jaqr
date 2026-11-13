@@ -1,0 +1,3 @@
+# expect: SYN001
+# the grammar requires an initialiser for imut
+fn main() { imut x: int; }

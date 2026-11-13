@@ -1,0 +1,3 @@
+# expect: SEM001
+# use of an undeclared name
+fn main() { let x: int = y; }

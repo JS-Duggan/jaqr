@@ -1,0 +1,42 @@
+# Array literals, zero fill, indexing, element writes, multi-dimensional arrays
+fn main() {
+    let nums: [5]int = [3, 1, 4, 1, 5];
+    let total: int = 0;
+    for (let i: int = 0; i < 5; i = i + 1) {
+        total = total + nums[i];
+    }
+    print(total);
+    print("\n");
+
+    let partial: [5]int = [1, 2];
+    for (let i: int = 0; i < 5; i = i + 1) {
+        print(partial[i]);
+    }
+    print("\n");
+
+    let grid: [2][3]int;
+    for (let r: int = 0; r < 2; r = r + 1) {
+        for (let c: int = 0; c < 3; c = c + 1) {
+            grid[r][c] = r * 3 + c + 1;
+        }
+    }
+    grid[1][2] = 60;
+    for (let r: int = 0; r < 2; r = r + 1) {
+        for (let c: int = 0; c < 3; c = c + 1) {
+            print(grid[r][c]);
+            print(" ");
+        }
+    }
+    print("\n");
+
+    let letters: [3]char = ['a', 'b', 'c'];
+    letters[0] = 'z';
+    print(letters[0]);
+    print(letters[1]);
+    print(letters[2]);
+    print("\n");
+
+    imut primes: [3]int = [2, 3, 5];
+    print(primes[0] * primes[1] * primes[2]);
+    print("\n");
+}

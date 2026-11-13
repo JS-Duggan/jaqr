@@ -1,0 +1,3 @@
+# expect: SEM013
+# initialiser longer than the array
+fn main() { let a: [2]int = [1, 2, 3]; }

@@ -1,0 +1,26 @@
+# && and || only evaluate their right side when needed
+fn touch(v: bool): bool {
+    print("touched ");
+    return v;
+}
+
+fn main() {
+    if (false && touch(true)) {
+        print("no");
+    }
+    print("|");
+    if (true || touch(true)) {
+        print("yes");
+    }
+    print("|");
+    if (true && touch(false)) {
+        print("no");
+    } else {
+        print("else");
+    }
+    print("|");
+    if (false || touch(true)) {
+        print("yes");
+    }
+    print("\n");
+}

@@ -1,0 +1,3 @@
+# expect: SEM004
+# bitwise operators are int only
+fn main() { let x: int = 1.5 & 2; }

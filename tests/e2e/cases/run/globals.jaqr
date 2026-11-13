@@ -1,0 +1,18 @@
+# Global constants and mutable globals shared between functions
+define imut LIMIT: int = 3;
+define let counter: int = 0;
+
+fn bump(): int {
+    counter = counter + 1;
+    return counter;
+}
+
+fn main() {
+    while (counter < LIMIT) {
+        bump();
+    }
+    print(counter);
+    print(" ");
+    print(LIMIT * 10);
+    print("\n");
+}

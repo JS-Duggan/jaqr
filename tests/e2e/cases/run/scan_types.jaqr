@@ -1,0 +1,18 @@
+# scan works for int, float, char and bool (0/1); char skips whitespace
+fn main() {
+    let i: int;
+    let f: float;
+    let c: char;
+    let b: bool;
+    let ok: bool = scan(i) && scan(f) && scan(c) && scan(b);
+    print(ok);
+    print("\n");
+    print(i);
+    print(" ");
+    print(f);
+    print(" ");
+    print(c);
+    print(" ");
+    print(b);
+    print("\n");
+}

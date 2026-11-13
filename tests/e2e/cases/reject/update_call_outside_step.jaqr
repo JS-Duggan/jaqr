@@ -1,0 +1,5 @@
+# expect: SEM018
+# update call requires an active step
+define state s: int = 0;
+update fn u(a: int)() { a = 1; }
+fn main() { u(s)(); }

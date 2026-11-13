@@ -1,0 +1,14 @@
+# Sum integers until EOF
+fn main() {
+    let total: int = 0;
+    let n: int;
+    let count: int = 0;
+    while (scan(n)) {
+        total = total + n;
+        count = count + 1;
+    }
+    print(count);
+    print(" numbers, total ");
+    print(total);
+    print("\n");
+}

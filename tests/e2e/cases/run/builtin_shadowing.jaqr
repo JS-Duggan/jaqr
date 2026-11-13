@@ -1,0 +1,6 @@
+# print and scan are ordinary names: a user binding shadows the built-in
+fn main() {
+    let scan: int = 5;
+    print(scan * 2);
+    print("\n");
+}

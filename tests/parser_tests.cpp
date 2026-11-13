@@ -335,7 +335,8 @@ std::string span_text(const source_span &span) {
 // reading errors
 // ---------------------------------------------------------------------------------------------
 
-constexpr std::string_view end_of_input_message = "Parser error: unexpected end of input";
+// the message goes on to give the position just past the last token
+constexpr std::string_view end_of_input_message = "SYN001: unexpected end of input at line ";
 
 // the message of the syntax error the tokens cause
 std::string parse_error(const std::vector<token> &placed_tokens) {
@@ -349,7 +350,7 @@ std::string parse_error(const std::vector<token> &placed_tokens) {
 
 testing::AssertionResult is_error_at(std::string_view message, std::string_view description,
                                      const token &offender) {
-    const std::string start = std::format("Parser error: {} '{}'", description, offender.lexeme);
+    const std::string start = std::format("{} '{}'", description, offender.lexeme);
     const std::string end = std::format("at line {}, column {}", offender.line, offender.column);
     if (message.starts_with(start) && message.ends_with(end)) {
         return testing::AssertionSuccess();
@@ -360,7 +361,7 @@ testing::AssertionResult is_error_at(std::string_view message, std::string_view 
 
 // the message reports offender as an unexpected token, at the position of offender
 testing::AssertionResult is_unexpected_token(std::string_view message, const token &offender) {
-    return is_error_at(message, "unexpected token", offender);
+    return is_error_at(message, "SYN001: unexpected token", offender);
 }
 
 // parsing fails on the token at index offender, reporting its lexeme and position
@@ -379,11 +380,11 @@ testing::AssertionResult rejected_in_main_at(const std::vector<token> &body, std
 // parsing fails because the tokens stop too early
 testing::AssertionResult rejected_at_end(const std::vector<token> &unplaced_tokens) {
     const std::string message = parse_error(on_one_line(unplaced_tokens));
-    if (message == end_of_input_message) {
+    if (message.starts_with(end_of_input_message)) {
         return testing::AssertionSuccess();
     }
     return testing::AssertionFailure()
-           << "expected \"" << end_of_input_message << "\", got \"" << message << '"';
+           << "expected \"" << end_of_input_message << "...\", got \"" << message << '"';
 }
 
 // the literal is rejected as out of range, reporting its lexeme and position
@@ -391,7 +392,7 @@ testing::AssertionResult literal_out_of_range(const token &literal_token) {
     const std::vector<token> tokens = on_one_line(in_main(as_statement({literal_token})));
     const std::string message = parse_error(tokens);
     const token &offender = tokens.at(main_prefix_length);
-    const testing::AssertionResult result = is_error_at(message, "literal", offender);
+    const testing::AssertionResult result = is_error_at(message, "SYN002: literal", offender);
     if (result && message.find("is out of range") == std::string::npos) {
         return testing::AssertionFailure() << "not an out of range error: \"" << message << '"';
     }
@@ -2318,7 +2319,7 @@ TEST(ParserLiteral, NegativeIntIsNegateOfALiteral) {
 TEST(ParserLiteral, SmallestIntCannotBeWrittenDirectly) {
     const std::vector<token> tokens =
         on_one_line(in_main({tok(MINUS), int_lit("2147483648"), tok(SEMI_COLON)}));
-    EXPECT_TRUE(is_error_at(parse_error(tokens), "literal", tokens[main_prefix_length + 1]));
+    EXPECT_TRUE(is_error_at(parse_error(tokens), "SYN002: literal", tokens[main_prefix_length + 1]));
 }
 
 TEST(ParserLiteral, Base2) {
@@ -2803,7 +2804,7 @@ TEST(ParserError, MessagesAreRuntimeErrorsStartingWithParserError) {
         const ast_root_ptr root = parse(tokens);
         FAIL() << "parsed as " << dump(*root);
     } catch (const std::runtime_error &error) {
-        EXPECT_TRUE(std::string_view(error.what()).starts_with("Parser error:")) << error.what();
+        EXPECT_TRUE(std::string_view(error.what()).starts_with("SYN001:")) << error.what();
     }
 }
 
@@ -2880,7 +2881,7 @@ TEST(ParserError, AnySingleTokenIsHandled) {
     };
     for (const token &single : singles) {
         const std::string message = parse_error(on_one_line({single}));
-        EXPECT_TRUE(message.starts_with("Parser error: unexpected"))
+        EXPECT_TRUE(message.starts_with("SYN001: unexpected"))
             << single.lexeme << ": " << message;
     }
 }
@@ -3138,7 +3139,7 @@ TEST(ParserError, EveryProperPrefixOfADeclarationEndsUnexpectedly) {
     for (std::size_t length = 1; length < tokens.size(); length++) {
         const std::vector<token> prefix(tokens.begin(),
                                         tokens.begin() + static_cast<std::ptrdiff_t>(length));
-        EXPECT_EQ(parse_error(prefix), end_of_input_message)
+        EXPECT_TRUE(parse_error(prefix).starts_with(end_of_input_message))
             << "prefix of " << length << " tokens, ending at '" << prefix.back().lexeme << "'";
     }
 }
@@ -3166,7 +3167,7 @@ TEST(ParserError, PositionIsThatOfTheOffendingToken) {
     };
     const std::string message = parse_error(tokens);
     EXPECT_TRUE(is_unexpected_token(message, tokens[11]));
-    EXPECT_TRUE(message.starts_with("Parser error: unexpected token 'return'")) << message;
+    EXPECT_TRUE(message.starts_with("SYN001: unexpected token 'return'")) << message;
     EXPECT_TRUE(message.ends_with("at line 2, column 4")) << message;
 }
 
@@ -3187,7 +3188,7 @@ TEST(ParserError, PositionSkipsTriviaBeforeTheOffendingToken) {
         at(tok(CURLY_CLOSE), 5, 0),
     };
     const std::string message = parse_error(tokens);
-    EXPECT_TRUE(message.starts_with("Parser error: unexpected token '}'")) << message;
+    EXPECT_TRUE(message.starts_with("SYN001: unexpected token '}'")) << message;
     EXPECT_TRUE(message.ends_with("at line 5, column 0")) << message;
 }
 
@@ -3204,7 +3205,7 @@ TEST(ParserError, LiteralOutOfRangeReportsTheLiteralPosition) {
         at(tok(SEMI_COLON), 7, 32),
     };
     EXPECT_EQ(parse_error(tokens),
-              "Parser error: literal '2147483648' is out of range at line 7, column 22");
+              "SYN002: literal '2147483648' is out of range at line 7, column 22");
 }
 
 TEST(ParserError, FirstErrorIsTheOneReported) {

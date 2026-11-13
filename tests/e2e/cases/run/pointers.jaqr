@@ -1,0 +1,35 @@
+# Address-of, dereference, heap allocation, pointer arithmetic, out-params
+fn set(p: ->int, value: int): int {
+    <-p = value;
+    return value;
+}
+
+fn main() {
+    let x: int = 7;
+    let p: ->int = @x;
+    <-p = <-p + 1;
+    print(x);
+    print("\n");
+
+    set(@x, 99);
+    print(x);
+    print("\n");
+
+    let heap: ->int = new(int, 3);
+    <-heap = 42;
+    <-(heap + 1) = 43;
+    <-(heap + 2) = 44;
+    print(<-heap);
+    print(" ");
+    let third: int = <-(heap + 2);
+    print(third);
+    print(" ");
+    let second: ->int = heap + 1;
+    print(<-second);
+    print("\n");
+
+    let pp: ->->int = @p;
+    <-<-pp = 5;
+    print(x);
+    print("\n");
+}

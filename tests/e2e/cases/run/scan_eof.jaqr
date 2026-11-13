@@ -1,0 +1,9 @@
+# No input at all: scan reports failure
+fn main() {
+    let x: int;
+    if (scan(x)) {
+        print("read\n");
+    } else {
+        print("eof\n");
+    }
+}

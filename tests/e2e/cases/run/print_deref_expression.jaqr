@@ -1,0 +1,7 @@
+# print accepts any int expression, including a dereference of pointer arithmetic
+fn main() {
+    let heap: ->int = new(int, 2);
+    <-(heap + 1) = 7;
+    print(<-(heap + 1));
+    print("\n");
+}

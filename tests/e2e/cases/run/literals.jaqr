@@ -1,0 +1,23 @@
+# Number, char, bool and string literal forms
+fn main() {
+    print(42);
+    print(" ");
+    print(2b1010);
+    print(" ");
+    print(16bff);
+    print(" ");
+    print(16bFF);
+    print(" ");
+    print(.5);
+    print(" ");
+    print(2.);
+    print(" ");
+    print(3.25);
+    print("\n");
+    print('a');
+    print('\n');
+    print(true);
+    print(false);
+    print("\n");
+    print("tab:\tend\n");
+}

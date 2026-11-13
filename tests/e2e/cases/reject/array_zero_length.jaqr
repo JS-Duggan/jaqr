@@ -1,0 +1,3 @@
+# expect: SEM013
+# array length must be positive
+fn main() { let a: [0]int; }

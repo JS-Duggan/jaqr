@@ -1,0 +1,8 @@
+# Bad input fails, and the stream stays failed for later scans
+fn main() {
+    let a: int;
+    let b: int;
+    print(scan(a));
+    print(scan(b));
+    print("\n");
+}

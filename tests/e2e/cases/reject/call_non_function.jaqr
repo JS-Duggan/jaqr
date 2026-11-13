@@ -1,0 +1,3 @@
+# expect: SEM006
+# only functions can be called
+fn main() { let x: int = 1; x(); }

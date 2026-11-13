@@ -1,0 +1,11 @@
+# A string literal initialises a char array (with its terminating zero)
+fn main() {
+    let word: [6]char = "hello";
+    word[0] = 'j';
+    for (let i: int = 0; i < 5; i = i + 1) {
+        print(word[i]);
+    }
+    print(" ");
+    print(int(word[5]));
+    print("\n");
+}

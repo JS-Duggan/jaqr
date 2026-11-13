@@ -232,7 +232,13 @@ void code_generator::visit(const postfix_expr &node) {
             if (!first)
                 loc.back() += ", ";
             first = false;
-            a->accept(*this);
+            // Only print takes a string as text; everywhere else it is a char array.
+            const auto *text = dynamic_cast<const literal *>(a.get());
+            if (builtins.contains(&node) && text &&
+                std::holds_alternative<std::string>(text->value))
+                loc.back() += quoted_literal(std::get<std::string>(text->value), '"');
+            else
+                a->accept(*this);
         }
         loc.back() += ')';
         break;
@@ -272,6 +278,20 @@ void code_generator::visit(const postfix_expr &node) {
 }
 
 void code_generator::visit(const literal &node) {
+    if (const auto *text = std::get_if<std::string>(&node.value)) {
+        // A char array value: std::array needs double braces, and any elements
+        // left over (including the terminating zero) are zero-initialised.
+        loc.back() += "{{";
+        bool first = true;
+        for (const char ch : *text) {
+            if (!first)
+                loc.back() += ',';
+            first = false;
+            loc.back() += quoted_literal(std::string_view(&ch, 1), '\'');
+        }
+        loc.back() += "}}";
+        return;
+    }
     loc.back() += '(';
     std::visit(
         overloaded{
@@ -321,7 +341,8 @@ void code_generator::visit(const assignment_expr &node) {
 }
 
 void code_generator::visit(const array_literal &node) {
-    loc.back() += '{';
+    // std::array wraps a C array, so nested literals need both brace levels.
+    loc.back() += "{{";
     bool first = true;
     for (const auto &arg : node.elements) {
         if (!first)
@@ -329,7 +350,7 @@ void code_generator::visit(const array_literal &node) {
         first = false;
         arg->accept(*this);
     }
-    loc.back() += '}';
+    loc.back() += "}}";
 }
 
 void code_generator::visit(const struct_literal &node) {

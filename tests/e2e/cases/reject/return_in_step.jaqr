@@ -1,0 +1,4 @@
+# expect: SEM023
+# no early exit from a step
+define state s: int = 0;
+fn main() { step { return; } }

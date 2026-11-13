@@ -1,0 +1,8 @@
+# A full-line comment
+fn main() { # trailing comment after a brace
+    # comment inside a block
+    let x: int = 1; # trailing comment after a statement
+    print(x); # print("not run");
+    print("#not a comment\n");
+}
+# comment at end of file

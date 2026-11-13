@@ -1,0 +1,4 @@
+# expect: SEM001
+# functions must be defined before they are called
+fn main() { g(); }
+fn g(): int { return 1; }

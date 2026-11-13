@@ -217,14 +217,14 @@ std::string joined_lexemes(const std::vector<token> &tokens) {
 // matches a lexer error that reports an unexpected character at the given 0-indexed position
 auto lexer_error_at(int line, int column) {
     return ThrowsMessage<std::runtime_error>(
-        AllOf(StartsWith("Lexer error:"), HasSubstr("unexpected character"),
+        AllOf(StartsWith("LEX001:"), HasSubstr("unexpected character"),
               HasSubstr(std::format("at line {}, column {}", line, column))));
 }
 
 // matches a lexer error for input that ends inside the token starting at the given position
 auto unfinished_token_error(int start_line, int start_column) {
     return ThrowsMessage<std::runtime_error>(
-        AllOf(StartsWith("Lexer error:"), HasSubstr("unexpected end of input"),
+        AllOf(StartsWith("LEX002:"), HasSubstr("unexpected end of input"),
               HasSubstr(std::format("starts at line {}, column {}", start_line, start_column))));
 }
 

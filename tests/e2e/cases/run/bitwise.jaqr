@@ -1,0 +1,21 @@
+# Bitwise operators bind tighter than comparisons; x<-1 is x < -1
+fn main() {
+    print(16bff & 2b1010);
+    print(" ");
+    print(5 | 2);
+    print(" ");
+    print(6 ^ 3);
+    print(" ");
+    print(1 << 4);
+    print(" ");
+    print(256 >> 2);
+    print("\n");
+    let x: int = 6;
+    print(x & 1 == 0);
+    print(x & 1 == 1);
+    print("\n");
+    let y: int = -5;
+    print(y<-1);
+    print(x<-1);
+    print("\n");
+}

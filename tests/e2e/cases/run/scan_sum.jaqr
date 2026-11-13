@@ -1,0 +1,15 @@
+# Read two integers from stdin and print their sum
+fn add(a: int, b: int): int {
+    return a + b;
+}
+
+fn main() {
+    let x: int;
+    let y: int;
+    if (scan(x) && scan(y)) {
+        print(add(x, y));
+        print("\n");
+    } else {
+        print("expected two integers\n");
+    }
+}

@@ -1,0 +1,4 @@
+# expect: SEM021
+# output cannot be rolled back
+define state s: int = 0;
+fn main() { step { print(1); } }

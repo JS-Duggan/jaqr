@@ -1,0 +1,6 @@
+# expect: SYN001
+# missing semicolon
+fn main() {
+    let x: int = 1
+    print(x);
+}

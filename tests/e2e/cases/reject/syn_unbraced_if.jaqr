@@ -1,0 +1,5 @@
+# expect: SYN001
+# if bodies must use braces
+fn main() {
+    if (true) print(1);
+}

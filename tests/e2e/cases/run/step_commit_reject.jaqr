@@ -1,0 +1,32 @@
+# A step commits when invariants hold and rolls back (running reject) when not
+define state balance: int = 100;
+
+inv { balance >= 0 };
+
+update fn withdraw(b: int)(amount: int) {
+    b = b - amount;
+}
+
+fn main() {
+    step {
+        withdraw(balance)(30);
+    } reject {
+        print("rejected\n");
+    }
+    print(balance);
+    print("\n");
+
+    step {
+        withdraw(balance)(500);
+    } reject {
+        print("withdrawal of 500 rejected\n");
+    }
+    print(balance);
+    print("\n");
+
+    step {
+        balance = balance - 1000;
+    }
+    print(balance);
+    print("\n");
+}

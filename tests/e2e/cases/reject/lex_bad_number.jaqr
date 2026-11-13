@@ -1,0 +1,3 @@
+# expect: LEX001
+# invalid character in a number literal
+fn main() { let x: int = 123abc; }

@@ -1,0 +1,30 @@
+# Explicit casts between primitives, implicit int <-> float on assignment
+fn main() {
+    print(float(7) / 2.0);
+    print(" ");
+    print(int(3.9));
+    print(" ");
+    print(int(-3.9));
+    print(" ");
+    print(int('A'));
+    print(" ");
+    print(char(66));
+    print(" ");
+    print(bool(5));
+    print(bool(0));
+    print("\n");
+    let i: int = 2.9;
+    let f: float = 3;
+    let m: float = 1 + 0.5;
+    print(i);
+    print(" ");
+    print(f);
+    print(" ");
+    print(m);
+    print(" ");
+    print(7 / 2.0);
+    print("\n");
+    let fs: [3]float = [1, 2.5, 3];
+    print(fs[0] + fs[1] + fs[2]);
+    print("\n");
+}

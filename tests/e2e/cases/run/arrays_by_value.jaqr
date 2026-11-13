@@ -1,0 +1,35 @@
+# Arrays are values: assignment, parameters and returns copy the whole array
+fn sort(a: [5]int): [5]int {
+    for (let i: int = 0; i < 5; i = i + 1) {
+        for (let j: int = 0; j < 4 - i; j = j + 1) {
+            if (a[j] > a[j + 1]) {
+                let tmp: int = a[j];
+                a[j] = a[j + 1];
+                a[j + 1] = tmp;
+            }
+        }
+    }
+    return a;
+}
+
+fn show(a: [5]int): int {
+    for (let i: int = 0; i < 5; i = i + 1) {
+        print(a[i]);
+        print(" ");
+    }
+    print("\n");
+    return 0;
+}
+
+fn main() {
+    let data: [5]int = [5, 2, 9, 1, 7];
+    let sorted: [5]int = sort(data);
+    show(sorted);
+    show(data);
+    let copy: [5]int = data;
+    copy[0] = 100;
+    print(copy[0]);
+    print(" ");
+    print(data[0]);
+    print("\n");
+}

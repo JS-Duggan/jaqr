@@ -1,0 +1,5 @@
+# expect: SEM019
+# update functions cannot open a step
+define state s: int = 0;
+update fn u(a: int)() { step { } }
+fn main() { step { u(s)(); } }

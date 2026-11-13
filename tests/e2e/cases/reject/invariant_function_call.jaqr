@@ -1,0 +1,6 @@
+# expect: SEM020
+# invariants cannot call functions
+define state s: int = 0;
+fn f(): int { return 1; }
+inv { s < f() };
+fn main() { }

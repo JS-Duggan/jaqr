@@ -1,0 +1,6 @@
+# expect: SEM001
+# names must be declared before use
+fn main() {
+    let y: int = x;
+    let x: int = 1;
+}

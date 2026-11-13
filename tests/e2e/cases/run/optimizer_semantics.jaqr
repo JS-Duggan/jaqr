@@ -1,0 +1,43 @@
+# Constructs the optimiser rewrites must keep their meaning
+fn main() {
+    let total: int = 0;
+    for (let i: int = 0; i < 4; i = i + 1) {
+        total = total + i;
+    }
+    print(total);
+    print("\n");
+
+    if (1 + 1 == 2) {
+        print("folded\n");
+    } else {
+        print("wrong\n");
+    }
+
+    while (false) {
+        print("never\n");
+    }
+
+    for (let j: int = 0; false; j = j + 1) {
+        print("never\n");
+    }
+
+    let unused: int = 5;
+    let dead: int = 1;
+    dead = 2;
+    print(dead);
+    print("\n");
+
+    print(2147483647 - 1);
+    print(" ");
+    print(100000 * 1000);
+    print(" ");
+    print(-2147483647 - 1);
+    print("\n");
+
+    let big: int = 0;
+    for (let k: int = 0; k < 20; k = k + 1) {
+        big = big + k;
+    }
+    print(big);
+    print("\n");
+}

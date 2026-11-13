@@ -1,0 +1,4 @@
+# expect: SEM008
+# every path of a non-void function must return
+fn f(): int { let x: int = 1; }
+fn main() { }

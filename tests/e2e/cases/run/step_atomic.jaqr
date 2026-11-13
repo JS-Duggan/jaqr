@@ -1,0 +1,53 @@
+# All state written in a step commits or rolls back together; several invariants
+define state a: int = 60;
+define state b: int = 40;
+
+inv { a + b == 100 };
+inv { a >= 0 && b >= 0 };
+
+update fn transfer(src: int, dst: int)(amount: int) {
+    src = src - amount;
+    dst = dst + amount;
+}
+
+fn show(): int {
+    print(a);
+    print(" ");
+    print(b);
+    print("\n");
+    return 0;
+}
+
+fn main() {
+    step { transfer(a, b)(10); }
+    show();
+
+    step { a = a - 20; } reject { print("unbalanced\n"); }
+    show();
+
+    step { transfer(b, a)(70); } reject { print("negative\n"); }
+    show();
+
+    step {
+        a = a - 25;
+        b = b + 25;
+    }
+    show();
+
+    step {
+        a = a + 1;
+        a = a + 1;
+        b = b - 2;
+    }
+    show();
+
+    step {
+        a = a + 1000;
+        b = b - 1000;
+        a = a - 1000;
+        b = b + 1000;
+    } reject {
+        print("intermediate states must not be checked\n");
+    }
+    show();
+}

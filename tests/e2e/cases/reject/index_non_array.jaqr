@@ -1,0 +1,3 @@
+# expect: SEM014
+# only arrays and pointers can be indexed
+fn main() { let x: int = 1; let y: int = x[0]; }

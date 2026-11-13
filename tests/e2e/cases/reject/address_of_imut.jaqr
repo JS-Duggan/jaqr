@@ -1,0 +1,3 @@
+# expect: SEM016
+# cannot take the address of imut storage
+fn main() { imut x: int = 1; let p: ->int = @x; }

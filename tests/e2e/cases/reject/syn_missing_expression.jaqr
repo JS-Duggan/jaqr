@@ -1,0 +1,3 @@
+# expect: SYN001
+# missing initialiser expression
+fn main() { let x: int = ; }

@@ -1,0 +1,4 @@
+# expect: SEM019
+# steps cannot nest
+define state s: int = 0;
+fn main() { step { step { } } }

@@ -1,0 +1,3 @@
+# expect: SEM024
+# exactly one fn main() is required
+fn helper(): int { return 1; }

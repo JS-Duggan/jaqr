@@ -1,0 +1,18 @@
+# Comparison and logical operators produce bool (printed 0/1)
+fn main() {
+    print(3 < 4);
+    print(3 > 4);
+    print(3 <= 3);
+    print(3 >= 4);
+    print(3 == 3);
+    print(3 != 3);
+    print("\n");
+    print(true && false);
+    print(true || false);
+    print(!true);
+    print(!false);
+    print(0 || 2);
+    print(1 && 0);
+    print(!0);
+    print("\n");
+}

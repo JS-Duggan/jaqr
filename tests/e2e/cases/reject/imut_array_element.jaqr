@@ -1,0 +1,3 @@
+# expect: SEM012
+# imut arrays are deeply immutable
+fn main() { imut a: [2]int = [1, 2]; a[0] = 5; }

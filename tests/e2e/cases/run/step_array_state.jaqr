@@ -1,0 +1,20 @@
+# Array state rolls back element-wise
+define state slots: [3]int = [1, 2, 3];
+
+inv { slots[0] + slots[1] + slots[2] == 6 };
+
+fn main() {
+    step {
+        slots[0] = 0;
+        slots[2] = 4;
+    }
+    step {
+        slots[1] = 100;
+    } reject {
+        print("rejected\n");
+    }
+    print(slots[0]);
+    print(slots[1]);
+    print(slots[2]);
+    print("\n");
+}

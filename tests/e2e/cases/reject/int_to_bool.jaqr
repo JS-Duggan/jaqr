@@ -1,0 +1,3 @@
+# expect: SEM003
+# numbers are not assignable to bool without a cast
+fn main() { let b: bool = 1; }

@@ -1,0 +1,37 @@
+# Functions: typed parameters, return values of each type, calls in expressions
+fn grade(score: int): char {
+    if (score >= 85) {
+        return 'A';
+    } elif (score >= 70) {
+        return 'B';
+    } elif (score >= 50) {
+        return 'C';
+    } else {
+        return 'F';
+    }
+}
+
+fn average(a: float, b: float): float {
+    return (a + b) / 2.0;
+}
+
+fn is_even(n: int): bool {
+    return (n & 1) == 0;
+}
+
+fn twice(n: int): int {
+    return n * 2;
+}
+
+fn main() {
+    print(grade(72));
+    print(grade(30));
+    print(" ");
+    print(average(1.0, 2.0));
+    print(" ");
+    print(is_even(4));
+    print(is_even(7));
+    print(" ");
+    print(twice(twice(twice(1))) + twice(5));
+    print("\n");
+}

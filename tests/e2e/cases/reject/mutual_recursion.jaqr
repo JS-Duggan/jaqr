@@ -1,0 +1,8 @@
+# expect: SEM001
+# only direct recursion: g is not yet defined inside f
+fn f(n: int): int {
+    if (n == 0) { return 0; }
+    return g(n - 1);
+}
+fn g(n: int): int { return f(n); }
+fn main() { print(f(3)); }
