@@ -5,6 +5,7 @@
 #include "../ast/statement.h"
 #include "../ast/type.h"
 #include "../optimizer/optimizer.h"
+#include "../semantic/builtins.h"
 #include "../visitor/visitor.h"
 
 #include <string>
@@ -33,6 +34,7 @@ class code_generator : visitor {
     std::size_t step_scope_depth = 0;
     bool in_update_function = false;
     optimization_plan optimizations;
+    builtin_calls builtins;
 
     bool emit_constant(const expr &node);
 

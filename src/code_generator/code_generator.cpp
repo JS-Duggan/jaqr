@@ -201,7 +201,11 @@ void code_generator::visit(const unary_expr &node) {
 
 void code_generator::visit(const postfix_expr &node) {
     loc.back() += '(';
-    node.obj->accept(*this);
+    if (const auto found = builtins.find(&node); found != builtins.end())
+        loc.back() +=
+            found->second == builtin_function::print ? "jaqr_runtime::print" : "jaqr_runtime::scan";
+    else
+        node.obj->accept(*this);
 
     switch (node.op) {
     case postfix_op::FUNCT_CALL: {
@@ -574,7 +578,7 @@ void code_generator::visit(const step_stmt &node) {
 void code_generator::visit(const variable_decl &node) {
     node.declared_type->accept(*this);
     if (node.immutable)
-        loc.back() += "const ";
+        loc.back() += " const";
     loc.back() += " " + node.name->lexeme;
 
     if (node.initializer) {
@@ -764,6 +768,7 @@ void code_generator::visit(const array_type_syntax &node) {
 
 std::vector<std::string> code_generator::gen_code(const program &node,
                                                   optimization_options options) {
+    builtins = resolve_builtins(node);
     optimizations = optimize(node, options);
     loc.clear();
     invariant_names.clear();
@@ -779,6 +784,8 @@ std::vector<std::string> code_generator::gen_code(const program &node,
     loc.emplace_back("#include <cmath>");
     loc.emplace_back("#include <array>");
     loc.emplace_back("#include <type_traits>");
+    if (!builtins.empty())
+        loc.emplace_back("#include <jaqr/runtime/io.h>");
     loc.emplace_back();
 
     visit(node);
