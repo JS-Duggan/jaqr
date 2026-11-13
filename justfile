@@ -53,3 +53,4 @@ lint *args: configure
 
 clean:
     cmake -E rm -rf build
+

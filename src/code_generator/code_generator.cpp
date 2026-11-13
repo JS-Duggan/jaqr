@@ -150,6 +150,8 @@ const char *operator_text(binary_op op) {
 }
 
 void code_generator::visit(const binary_expr &node) {
+    if (emit_constant(node))
+        return;
     loc.back() += " (";
     switch (node.operation) {
     case binary_op::FLOOR_DIVIDE:
@@ -175,6 +177,8 @@ void code_generator::visit(const binary_expr &node) {
 }
 
 void code_generator::visit(const unary_expr &node) {
+    if (emit_constant(node))
+        return;
     loc.back() += " (";
     switch (node.operation) {
     case unary_op::NEGATE:
@@ -197,7 +201,11 @@ void code_generator::visit(const unary_expr &node) {
 
 void code_generator::visit(const postfix_expr &node) {
     loc.back() += '(';
-    node.obj->accept(*this);
+    if (const auto found = builtins.find(&node); found != builtins.end())
+        loc.back() +=
+            found->second == builtin_function::print ? "jaqr_runtime::print" : "jaqr_runtime::scan";
+    else
+        node.obj->accept(*this);
 
     switch (node.op) {
     case postfix_op::FUNCT_CALL: {
@@ -263,6 +271,19 @@ void code_generator::visit(const literal &node) {
         },
         node.value);
     loc.back() += ')';
+}
+
+bool code_generator::emit_constant(const expr &node) {
+    const auto found = optimizations.constants.find(&node);
+    if (found == optimizations.constants.end())
+        return false;
+    const bool integer = std::holds_alternative<std::int32_t>(found->second);
+    if (integer)
+        loc.back() += "static_cast<std::int32_t>(";
+    visit(literal(found->second));
+    if (integer)
+        loc.back() += ')';
+    return true;
 }
 
 void code_generator::visit(const identifier &node) {
@@ -331,7 +352,8 @@ void code_generator::visit(const block_stmt &node) {
     const auto body_start = loc.size();
     loc.emplace_back();
     for (const auto &stmt : node.statements) {
-        stmt->accept(*this);
+        if (!optimizations.omitted.contains(stmt.get()))
+            stmt->accept(*this);
     }
     // Indent body lines, leaving the fresh final line for the closing brace.
     for (auto i = body_start; i < loc.size(); ++i) {
@@ -373,6 +395,15 @@ void code_generator::visit(const return_stmt &node) {
 void code_generator::visit(const if_stmt &node) {
     bool first = true;
     for (const auto &branch : node.branches) {
+        const auto constant = optimizations.boolean(branch.condition.get());
+        if (constant == false)
+            continue;
+        if (constant == true) {
+            if (!first)
+                loc.back() += "else ";
+            branch.body->accept(*this);
+            return;
+        }
         loc.back() += first ? "if (" : "else if (";
         branch.condition->accept(*this);
         loc.back() += ") ";
@@ -380,7 +411,8 @@ void code_generator::visit(const if_stmt &node) {
         first = false;
     }
     if (node.else_body) {
-        loc.back() += "else ";
+        if (!first)
+            loc.back() += "else ";
         node.else_body->accept(*this);
     }
 }
@@ -394,6 +426,30 @@ void code_generator::visit(const while_stmt &node) {
 
 void code_generator::visit(const for_stmt &node) {
     scopes.emplace_back();
+    if (const auto found = optimizations.unrolled.find(&node);
+        found != optimizations.unrolled.end()) {
+        loc.back() += '{';
+        const auto start = loc.size();
+        loc.emplace_back();
+        if (node.initializer) {
+            node.initializer->accept(*this);
+            loc.back() += ';';
+            loc.emplace_back();
+        }
+        for (std::size_t i = 0; i < found->second; ++i) {
+            node.body->accept(*this);
+            node.increment->accept(*this);
+            loc.back() += ';';
+            loc.emplace_back();
+        }
+        for (auto i = start; i < loc.size(); ++i)
+            if (!loc[i].empty())
+                loc[i].insert(0, 4, ' ');
+        loc.back() += '}';
+        loc.emplace_back();
+        scopes.pop_back();
+        return;
+    }
     loc.back() += "for (";
     if (node.initializer)
         node.initializer->accept(*this);
@@ -522,7 +578,7 @@ void code_generator::visit(const step_stmt &node) {
 void code_generator::visit(const variable_decl &node) {
     node.declared_type->accept(*this);
     if (node.immutable)
-        loc.back() += "const ";
+        loc.back() += " const";
     loc.back() += " " + node.name->lexeme;
 
     if (node.initializer) {
@@ -710,7 +766,10 @@ void code_generator::visit(const array_type_syntax &node) {
     loc.back() += '>';
 }
 
-std::vector<std::string> code_generator::gen_code(const program &node) {
+std::vector<std::string> code_generator::gen_code(const program &node,
+                                                  optimization_options options) {
+    builtins = resolve_builtins(node);
+    optimizations = optimize(node, options);
     loc.clear();
     invariant_names.clear();
     scopes.clear();
@@ -725,6 +784,8 @@ std::vector<std::string> code_generator::gen_code(const program &node) {
     loc.emplace_back("#include <cmath>");
     loc.emplace_back("#include <array>");
     loc.emplace_back("#include <type_traits>");
+    if (!builtins.empty())
+        loc.emplace_back("#include <jaqr/runtime/io.h>");
     loc.emplace_back();
 
     visit(node);

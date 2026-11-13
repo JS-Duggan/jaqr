@@ -13,5 +13,26 @@ set_target_properties(jaqr PROPERTIES
 
 include(CTest)
 if(BUILD_TESTING)
-    add_subdirectory(tests)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(JAQR_CODEGEN_SOURCES
+        src/optimizer/optimizer.cpp
+        src/semantic/builtins.cpp
+        src/code_generator/code_generator.cpp
+        src/ast/declaration.cpp
+        src/ast/expression.cpp
+        src/ast/statement.cpp
+        src/ast/type.cpp
+    )
+    add_executable(optimizer_tests tests/optimizer.cpp ${JAQR_CODEGEN_SOURCES})
+    add_executable(io_tests tests/io.cpp ${JAQR_CODEGEN_SOURCES})
+    target_include_directories(io_tests PRIVATE src)
+    target_compile_features(io_tests PRIVATE cxx_std_20)
+    add_test(NAME io_semantics
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/io_test.py"
+            $<TARGET_FILE:io_tests> "${CMAKE_CXX_COMPILER}" "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
+    target_include_directories(optimizer_tests PRIVATE src)
+    target_compile_features(optimizer_tests PRIVATE cxx_std_20)
+    add_test(NAME optimizer_semantics
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer_test.py"
+            $<TARGET_FILE:optimizer_tests> "${CMAKE_CXX_COMPILER}")
 endif()
