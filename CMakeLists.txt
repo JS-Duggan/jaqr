@@ -25,6 +25,12 @@ if(BUILD_TESTING)
     )
     add_executable(optimizer_tests tests/optimizer.cpp ${JAQR_CODEGEN_SOURCES})
     add_executable(io_tests tests/io.cpp ${JAQR_CODEGEN_SOURCES})
+    add_executable(name_tests tests/names.cpp ${JAQR_CODEGEN_SOURCES})
+    target_include_directories(name_tests PRIVATE src)
+    target_compile_features(name_tests PRIVATE cxx_std_20)
+    add_test(NAME generated_names
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer_test.py"
+            $<TARGET_FILE:name_tests> "${CMAKE_CXX_COMPILER}" "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
     target_include_directories(io_tests PRIVATE src)
     target_compile_features(io_tests PRIVATE cxx_std_20)
     add_test(NAME io_semantics

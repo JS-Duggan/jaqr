@@ -35,6 +35,7 @@ class code_generator : visitor {
     bool in_update_function = false;
     optimization_plan optimizations;
     builtin_calls builtins;
+    std::string current_impl;
 
     bool emit_constant(const expr &node);
 

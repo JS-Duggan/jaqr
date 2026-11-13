@@ -10,6 +10,23 @@
 
 namespace {
 
+// Keep source names unchanged in the AST and symbol tables. Only emitted C++
+// identifiers are mangled. Escape names that could still be reserved/collide
+// after prefixing; encoding the escape prefix itself makes this injective.
+std::string cpp_name(std::string_view name) {
+    if (name.starts_with('_') || name.find("__") != std::string_view::npos || name == "runtime" ||
+        name.starts_with("escaped_")) {
+        constexpr std::string_view hex = "0123456789abcdef";
+        std::string result = "jaqr_escaped_";
+        for (unsigned char ch : name) {
+            result += hex[ch >> 4U];
+            result += hex[ch & 15U];
+        }
+        return result;
+    }
+    return "jaqr_" + std::string(name);
+}
+
 template <class... Ts> struct overloaded : Ts... {
     using Ts::operator()...;
 };
@@ -64,7 +81,7 @@ std::string code_generator::state_value(const void *identity, const std::string 
         if (const auto found = values->find(identity); found != values->end())
             return found->second;
     }
-    return name;
+    return cpp_name(name);
 }
 
 bool code_generator::can_copy_state(const type_syntax &type) const {
@@ -227,7 +244,7 @@ void code_generator::visit(const postfix_expr &node) {
         break;
     case postfix_op::MEMBER_ACCESS:
         loc.back() += '.';
-        loc.back() += std::get<std::string>(node.arg);
+        loc.back() += cpp_name(std::get<std::string>(node.arg));
         break;
     case postfix_op::UPDATE_CALL: {
         loc.back() += '(';
@@ -288,7 +305,11 @@ bool code_generator::emit_constant(const expr &node) {
 
 void code_generator::visit(const identifier &node) {
     const auto *binding = find_binding(node.lexeme);
-    loc.back() += binding ? state_value(binding->identity, node.lexeme) : node.lexeme;
+    if (binding)
+        loc.back() += state_value(binding->identity, node.lexeme);
+    else
+        loc.back() +=
+            node.lexeme == "main" && current_impl.empty() ? "main" : cpp_name(node.lexeme);
 }
 
 void code_generator::visit(const assignment_expr &node) {
@@ -312,12 +333,12 @@ void code_generator::visit(const array_literal &node) {
 }
 
 void code_generator::visit(const struct_literal &node) {
-    loc.back() += node.struct_type + "{";
+    loc.back() += cpp_name(node.struct_type) + "{";
     bool first = true;
     for (const auto &arg : node.init_list) {
         if (!first)
             loc.back() += ',';
-        loc.back() += "." + arg.name + " = ";
+        loc.back() += "." + cpp_name(arg.name) + " = ";
         first = false;
         arg.val->accept(*this);
     }
@@ -480,7 +501,7 @@ void code_generator::visit(const step_stmt &node) {
     }
     std::sort(names.begin(), names.end());
 
-    const auto prefix = "jaqr_generated_step_" + std::to_string(next_step++) + "_";
+    const auto prefix = "jaqrInternal_step_" + std::to_string(next_step++) + "_";
     std::unordered_map<const void *, std::string> values;
     std::vector<std::pair<std::string, std::string>> commits;
     loc.back() += '{';
@@ -494,7 +515,7 @@ void code_generator::visit(const step_stmt &node) {
         const auto &binding = *find_binding(name);
         const auto suffix = std::to_string(values.size());
         const auto target = std::format("{}target_{}", prefix, suffix);
-        loc.back() += std::format("auto &{} = {};", target, name);
+        loc.back() += std::format("auto &{} = {};", target, cpp_name(name));
         loc.emplace_back();
         if (binding.immutable) {
             values.emplace(binding.identity, target);
@@ -536,7 +557,7 @@ void code_generator::visit(const step_stmt &node) {
                 if (!binding || binding->identity != input)
                     throw std::invalid_argument("Invariant input is hidden or out of scope: " +
                                                 input->name->lexeme);
-                loc.back() += input->name->lexeme;
+                loc.back() += cpp_name(input->name->lexeme);
             }
         }
         // Put the call first: evaluate every invariant even after one has failed.
@@ -579,7 +600,7 @@ void code_generator::visit(const variable_decl &node) {
     node.declared_type->accept(*this);
     if (node.immutable)
         loc.back() += " const";
-    loc.back() += " " + node.name->lexeme;
+    loc.back() += " " + cpp_name(node.name->lexeme);
 
     if (node.initializer) {
         loc.back() += " = ";
@@ -595,7 +616,7 @@ void code_generator::visit(const variable_decl &node) {
 void code_generator::visit(const function_decl &node) {
     in_update_function = node.kind == function_kind::UPDATE;
     scopes.emplace_back();
-    if (node.name->lexeme == "main") {
+    if (node.name->lexeme == "main" && current_impl.empty()) {
         loc.back() += "int";
     } else if (node.kind == function_kind::UPDATE) {
         loc.back() += "void";
@@ -604,7 +625,11 @@ void code_generator::visit(const function_decl &node) {
     } else {
         throw std::invalid_argument("Ordinary function requires a return type");
     }
-    loc.back() += " " + node.name->lexeme;
+    loc.back() += ' ';
+    if (!current_impl.empty())
+        loc.back() += cpp_name(current_impl) + "::";
+    loc.back() +=
+        node.name->lexeme == "main" && current_impl.empty() ? "main" : cpp_name(node.name->lexeme);
     loc.back() += '(';
 
     bool first = true;
@@ -615,7 +640,7 @@ void code_generator::visit(const function_decl &node) {
         first = false;
 
         param.declared_type->accept(*this);
-        loc.back() += " " + param.name;
+        loc.back() += " " + cpp_name(param.name);
         scopes.back().emplace(param.name,
                               state_binding{&param, param.declared_type.get(), false, false});
     }
@@ -627,7 +652,7 @@ void code_generator::visit(const function_decl &node) {
         first = false;
 
         param.declared_type->accept(*this);
-        loc.back() += " &" + param.name;
+        loc.back() += " &" + cpp_name(param.name);
         scopes.back().emplace(param.name,
                               state_binding{&param, param.declared_type.get(), true, false});
     }
@@ -639,12 +664,12 @@ void code_generator::visit(const function_decl &node) {
 }
 
 void code_generator::visit(const struct_decl &node) {
-    loc.back() += "struct " + node.name->lexeme + " {";
+    loc.back() += "struct " + cpp_name(node.name->lexeme) + " {";
     loc.emplace_back();
     for (const auto &field : node.fields) {
         loc.back() += "    ";
         field.declared_type->accept(*this);
-        loc.back() += " " + field.name + ";";
+        loc.back() += " " + cpp_name(field.name) + ";";
         loc.emplace_back();
     }
 
@@ -656,7 +681,7 @@ void code_generator::visit(const struct_decl &node) {
         else
             fn->return_type->accept(*this);
 
-        loc.back() += " " + fn->name->lexeme + "(";
+        loc.back() += " " + cpp_name(fn->name->lexeme) + "(";
 
         bool first = true;
         for (const auto &param : fn->ordinary_parameters) {
@@ -665,7 +690,7 @@ void code_generator::visit(const struct_decl &node) {
             first = false;
 
             param.declared_type->accept(*this);
-            loc.back() += " " + param.name;
+            loc.back() += " " + cpp_name(param.name);
         }
 
         for (const auto &param : fn->state_parameters) {
@@ -674,7 +699,7 @@ void code_generator::visit(const struct_decl &node) {
             first = false;
 
             param.declared_type->accept(*this);
-            loc.back() += " &" + param.name;
+            loc.back() += " &" + cpp_name(param.name);
         }
 
         loc.back() += ");";
@@ -685,19 +710,21 @@ void code_generator::visit(const struct_decl &node) {
 }
 
 void code_generator::visit(const impl_decl &node) {
+    current_impl = node.type_name->lexeme;
     for (const auto &fn : node.methods) {
         fn->accept(*this);
     }
+    current_impl.clear();
 }
 
 void code_generator::visit(const invariant_decl &node) {
     if (!step_values.empty() && scopes.size() != step_scope_depth)
         throw std::invalid_argument(
             "An invariant inside a step must be declared directly in its body");
-    const auto entry = invariant_names
-                           .try_emplace(&node, "jaqr_generated_invariant_" +
-                                                   std::to_string(invariant_names.size()))
-                           .first;
+    const auto entry =
+        invariant_names
+            .try_emplace(&node, "jaqrInternal_invariant_" + std::to_string(invariant_names.size()))
+            .first;
     loc.back() += "const auto " + entry->second + " = [](";
 
     bool first = true;
@@ -707,7 +734,7 @@ void code_generator::visit(const invariant_decl &node) {
         first = false;
 
         input->declared_type->accept(*this);
-        loc.back() += " const &" + input->name->lexeme;
+        loc.back() += " const &" + cpp_name(input->name->lexeme);
     }
 
     loc.back() += ") -> bool {";
@@ -750,7 +777,7 @@ void code_generator::visit(const primitive_type_syntax &node) {
 }
 
 void code_generator::visit(const named_type_syntax &node) {
-    loc.back() += node.name;
+    loc.back() += cpp_name(node.name);
 }
 
 void code_generator::visit(const pointer_type_syntax &node) {
@@ -776,6 +803,7 @@ std::vector<std::string> code_generator::gen_code(const program &node,
     step_values.clear();
     active_invariants.clear();
     structs.clear();
+    current_impl.clear();
     next_step = 0;
     step_scope_depth = 0;
     in_update_function = false;
