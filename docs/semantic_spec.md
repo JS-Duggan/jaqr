@@ -43,7 +43,7 @@ Runtime behaviour is included here as a contract for the code generator and runt
 
 Step supports:
 
-- Fixed-size arrays: `T[N]`
+- Fixed-size arrays: `[N]T`
 - Pointers: `->T`
 - Function signatures consisting of parameter types and a return type
 - The `null` literal for pointer contexts
@@ -51,6 +51,10 @@ Step supports:
 Types are checked structurally where appropriate. Two array types are equal only if their element types and lengths match. Two pointer types are equal only if their pointee types match.
 
 No implicit array-to-pointer conversion or array decay is permitted.
+
+A string literal represents a fixed-size array of `char`. Its length counts decoded bytes, including
+escaped characters after decoding. It has no implicit trailing zero. An empty string needs a
+declared `char` array as its initializer, since declared array lengths must be positive.
 
 A `null` literal may be used in a pointer context but not as an ordinary numeric value.
 
@@ -204,6 +208,9 @@ An array initializer may provide any number of elements up to the declared size.
 Providing more elements than the declared capacity is a semantic error.
 
 When an array initializer is present but incomplete, trailing elements are zero-initialized using the zero value of their element type.
+
+A string literal may initialize a larger `char` array. The same trailing zero-initialization rule
+applies. Assignment and function arguments still require exactly matching array lengths.
 
 Initializer elements permit the same implicit `int ↔ float` conversions as variable initialization. Other conversions require explicit casts.
 
