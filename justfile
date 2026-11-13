@@ -6,35 +6,9 @@ configure:
 build: configure
     cmake --build --preset debug
 
-run: build
-    ./build/debug/jaqr
-
-# Generate C++ from a JAQR source file into output.cpp.
 [positional-arguments]
-analyse source:
-    #!/bin/sh
-    set -eu
-    if [ ! -x build/debug/jaqr ]; then
-        just build
-    fi
-    generated_file="$(mktemp .jaqr-generated.XXXXXX)"
-    trap 'rm -f "$generated_file"' EXIT
-    ./build/debug/jaqr "$1" > "$generated_file"
-    mv "$generated_file" output.cpp
-
-# Compile a JAQR source file into output, using a temporary C++ file.
-[positional-arguments]
-compile source:
-    #!/bin/sh
-    set -eu
-    if [ ! -x build/debug/jaqr ]; then
-        just build
-    fi
-    build_directory="$(mktemp -d .jaqr-compile.XXXXXX)"
-    trap 'rm -rf "$build_directory"' EXIT
-    ./build/debug/jaqr "$1" > "$build_directory/generated.cpp"
-    "${CXX:-c++}" -std=c++20 -O2 -I runtime "$build_directory/generated.cpp" -o "$build_directory/output"
-    mv "$build_directory/output" output
+run source: build
+    ./build/debug/jaqr "$1"
 
 release:
     cmake --preset release
