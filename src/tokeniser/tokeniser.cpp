@@ -90,9 +90,8 @@ static std::string printable(char ch) {
 
 // positions in error messages are 0-indexed
 [[noreturn]] static void report_unexpected_char(char ch, const position &pos) {
-    throw std::runtime_error(
-        std::format("LEX001: unexpected character '{}' at line {}, column {}", printable(ch),
-                    pos.line, pos.col));
+    throw std::runtime_error(std::format("LEX001: unexpected character '{}' at line {}, column {}",
+                                         printable(ch), pos.line, pos.col));
 }
 
 [[noreturn]] static void report_unexpected_end(const std::vector<std::vector<char>> &input,

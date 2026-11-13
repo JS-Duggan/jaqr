@@ -23,7 +23,6 @@ semantic_error::semantic_error(std::string filename, std::string code, source_sp
       filename(std::move(filename)), code(std::move(code)), span(span), detail(std::move(detail)) {
 }
 
-namespace {
 struct value_type {
     enum class form { PRIMITIVE, STRUCT, POINTER, ARRAY } shape = form::PRIMITIVE;
     primitive_type primitive = primitive_type::VOID;
@@ -54,7 +53,7 @@ struct value_type {
     }
 };
 
-bool same(const value_type &a, const value_type &b) {
+static bool same(const value_type &a, const value_type &b) {
     if (a.shape != b.shape)
         return false;
     switch (a.shape) {
@@ -70,7 +69,7 @@ bool same(const value_type &a, const value_type &b) {
     return false;
 }
 
-std::string describe(const value_type &type) {
+static std::string describe(const value_type &type) {
     switch (type.shape) {
     case value_type::form::PRIMITIVE:
         return std::string(spelling(type.primitive));
@@ -84,15 +83,15 @@ std::string describe(const value_type &type) {
     return "<invalid>";
 }
 
-bool numeric(const value_type &type) {
+static bool numeric(const value_type &type) {
     return type.shape == value_type::form::PRIMITIVE &&
            (type.primitive == primitive_type::INT || type.primitive == primitive_type::FLOAT);
 }
-bool truthy(const value_type &type) {
+static bool truthy(const value_type &type) {
     return numeric(type) ||
            (type.shape == value_type::form::PRIMITIVE && type.primitive == primitive_type::BOOL);
 }
-bool compatible(const value_type &expected, const value_type &actual) {
+static bool compatible(const value_type &expected, const value_type &actual) {
     return same(expected, actual) || (numeric(expected) && numeric(actual));
 }
 
@@ -825,8 +824,6 @@ class checker final : public visitor {
         }
     }
 };
-} // namespace
-
 void analyse(const program &root, std::string_view filename) {
     checker{std::string(filename)}.run(root);
 }

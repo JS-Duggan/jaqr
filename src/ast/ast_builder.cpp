@@ -1,5 +1,6 @@
 
 #include "ast_builder.h"
+#include "ast_root.h"
 #include "declaration.h"
 #include "expression.h"
 #include "expression_base.h"
@@ -21,6 +22,12 @@ static std::unique_ptr<node_type> make_node(const source_span &span, arg_types &
     std::unique_ptr<node_type> node = std::make_unique<node_type>(std::forward<arg_types>(args)...);
     node->source = span;
     return node;
+}
+
+// ---- Root ----
+
+ast_root_ptr make_ast_root(std::vector<decl_ptr> decls) {
+    return std::make_unique<ast_root>(std::move(decls));
 }
 
 // ---- Expressions ----

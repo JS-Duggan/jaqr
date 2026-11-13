@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "../ast/ast_builder.h"
+#include "../ast/ast_root.h"
 #include "../ast/declaration.h"
 #include "../ast/expression.h"
 #include "../ast/expression_base.h"
@@ -30,7 +31,7 @@ class Parser {
     }
 
     // builds the AST of the whole program. throws std::runtime_error on a syntax error
-    program_ptr parse() {
+    ast_root_ptr parse() {
         return parse_program();
     }
 
@@ -56,14 +57,14 @@ class Parser {
     // ---------------------------------------------------------------------------------------
 
     [[noreturn]] static void report_unexpected_token(const token &errored_token) {
-        throw std::runtime_error(
-            std::format("SYN001: unexpected token '{}' at line {}, column {}",
-                        errored_token.lexeme, errored_token.line, errored_token.column));
+        throw std::runtime_error(std::format("SYN001: unexpected token '{}' at line {}, column {}",
+                                             errored_token.lexeme, errored_token.line,
+                                             errored_token.column));
     }
 
     [[noreturn]] void report_unexpected_end() const {
-        throw std::runtime_error(std::format("SYN001: unexpected end of input at line {}, column {}",
-                                             prev_end.line, prev_end.col));
+        throw std::runtime_error(std::format(
+            "SYN001: unexpected end of input at line {}, column {}", prev_end.line, prev_end.col));
     }
 
     // errors on whatever is at the current position (a token, or the end of input)
@@ -339,8 +340,8 @@ class Parser {
     // ---------------------------------------------------------------------------------------
 
     // program = { topLevelDeclaration } EOF ;
-    program_ptr parse_program() {
-        program_ptr root = make_program();
+    ast_root_ptr parse_program() {
+        ast_root_ptr root = make_ast_root();
         while (!at_end()) {
             root->declarations.push_back(parse_top_level_declaration());
         }
@@ -1237,7 +1238,7 @@ class Parser {
     }
 };
 
-program_ptr parse(const std::vector<token> &tokens) {
+ast_root_ptr parse(const std::vector<token> &tokens) {
     Parser p(tokens);
     return p.parse();
 }
