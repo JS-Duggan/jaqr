@@ -201,30 +201,30 @@ GoogleTest 1.15.2 and builds the front end as a static library `jaqr_front_end`.
 
 ### 4.1 End-to-end tests
 
-These run real `.jaqr` files through the `jaqr` executable, so they test the whole
-pipeline: tokeniser, parser, semantic analysis, optimiser, code generation and the
-runtime.
+These run real `.jaqr` files through `jaqr file.jaqr`, which compiles each program
+and runs it. They test the whole pipeline: tokeniser, parser, semantic analysis,
+optimiser, code generation, the C++ build and the runtime.
 
 Run them after building:
 
 ```sh
 just build
-python tests/e2e/run_e2e.py                    # all cases, C++ built at -O0
-python tests/e2e/run_e2e.py --opt-levels O0 O2 # also build the C++ at -O2
-python tests/e2e/run_e2e.py -k step            # only cases with "step" in the name
-python tests/e2e/run_e2e.py --cxx clang++      # pick the C++ compiler (default: $CXX, then c++)
+python tests/e2e/run_e2e.py                # all cases
+python tests/e2e/run_e2e.py -k step        # only cases with "step" in the name
+python tests/e2e/run_e2e.py --cxx clang++  # C++ compiler jaqr uses (sets JAQR_CXX)
+python tests/e2e/run_e2e.py --jaqr build/release/jaqr
 ```
 
 The runner prints `ok` or `FAIL` per case, then the details of each failure, and
-exits non-zero if anything failed. It uses `build/debug/jaqr` unless `--jaqr` says
-otherwise.
+exits non-zero if anything failed. A failing run case says which stage broke: jaqr
+rejected the program, the generated C++ did not compile, or the program failed.
 
 There are two kinds of case:
 
 | Folder | Contract | Files |
 |---|---|---|
-| `cases/run/` | `jaqr` accepts the program, the C++ compiles, and the program prints exactly the expected output | `name.jaqr`, `name.out` (expected stdout), optional `name.in` (stdin) |
-| `cases/reject/` | `jaqr` exits with an error, does not crash, emits no C++, and reports the expected code | `name.jaqr` whose first line is `# expect: SEM017` (any `LEX`, `SYN` or `SEM` code) |
+| `cases/run/` | `jaqr` accepts the program, the generated C++ compiles, the program exits 0 and prints exactly the expected output | `name.jaqr`, `name.out` (expected stdout), optional `name.in` (stdin) |
+| `cases/reject/` | `jaqr` exits with an error without crashing, reports the expected code, never reaches the C++ compiler, and the program never runs | `name.jaqr` whose first line is `# expect: SEM017` (any `LEX`, `SYN` or `SEM` code) |
 
 The run cases cover every core feature: I/O (including bad input and EOF), every
 operator and literal form, casts, control flow, functions, recursion, arrays,
@@ -235,11 +235,10 @@ optimiser rewrites. The reject cases cover each diagnostic in
 
 To add a case, drop the files into the right folder. No registration is needed.
 
-**Backends.** Today `jaqr` prints C++, so the default `transpile` backend compiles
-that C++ itself and runs the binary. When `jaqr` gains the ability to compile and
-run programs on its own, switch with `--backend native` (plus any flag the driver
-needs, for example `--jaqr-arg=--run`). The runner then treats `jaqr`'s stdout as
-the program's output. The case files stay the same.
+On Windows the runner puts the toolchain that built `jaqr` (from
+`build/debug/CMakeCache.txt`) and the `--cxx` compiler first on `PATH`. Without
+this, a MinGW `jaqr.exe` started from Git Bash loads Git's `libstdc++-6.dll` and
+exits with `0xC0000139` before printing anything.
 
 ## 5. Build system
 
