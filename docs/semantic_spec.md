@@ -43,7 +43,7 @@ Runtime behaviour is included here as a contract for the code generator and runt
 
 Step supports:
 
-- Fixed-size arrays: `T[N]`
+- Fixed-size arrays: `[N]T`
 - Pointers: `->T`
 - Function signatures consisting of parameter types and a return type
 - The `null` literal for pointer contexts
@@ -51,6 +51,10 @@ Step supports:
 Types are checked structurally where appropriate. Two array types are equal only if their element types and lengths match. Two pointer types are equal only if their pointee types match.
 
 No implicit array-to-pointer conversion or array decay is permitted.
+
+A string literal represents a fixed-size array of `char`. Its length counts decoded bytes, including
+escaped characters after decoding. It has no implicit trailing zero. An empty string needs a
+declared `char` array as its initializer, since declared array lengths must be positive.
 
 A `null` literal may be used in a pointer context but not as an ordinary numeric value.
 
@@ -137,7 +141,7 @@ Explicit casts do not permit arbitrary reinterpretation between pointers, arrays
 
 ### 5.1 Arithmetic
 
-Ordinary arithmetic operators `+`, `-`, `*` and `/` accept `int` and `float` operands only, except for the separately defined pointer operations.
+Ordinary arithmetic operators `+`, `-`, `*`, `/`, `\` and `~` accept `int` and `float` operands only, except for the separately defined pointer operations. The grammar uses `\` for floor division and `~` for exponentiation.
 
 | Operands | Result type |
 |---|---|
@@ -150,11 +154,9 @@ Integer division returns an integer and truncates towards zero.
 
 Examples: `5 / 2 = 2` and `-5 / 2 = -2`.
 
-`%` accepts only two `int` operands and returns `int`. Remainder follows C++ semantics, with the sign of a nonzero remainder matching the dividend.
+Division by a compile-time constant zero divisor is a semantic error for both `/` and `\`.
 
-Division or modulo with a compile-time constant zero divisor is a semantic error.
-
-Division or modulo with a dynamically evaluated zero divisor must raise a runtime error, including floating-point division by zero.
+Division by a dynamically evaluated zero divisor must raise a runtime error, including floating-point division by zero.
 
 ### 5.2 Comparisons
 
@@ -169,7 +171,7 @@ Equality between `char`, `byte` and `bool` requires both operands to have exactl
 
 Boolean ordering comparisons are prohibited.
 
-Pointer equality comparisons are allowed only for identical pointer types or a compatible pointer and `null`. Pointer ordering comparisons are prohibited.
+Pointer equality comparisons are allowed only for identical pointer types. Pointer ordering comparisons are prohibited.
 
 ### 5.3 Logical operators
 
@@ -179,7 +181,11 @@ All logical operators return `bool`.
 
 `&&` and `||` use short-circuit evaluation.
 
-### 5.4 Other arithmetic restrictions
+### 5.4 Bitwise and shift operators
+
+`&`, `|`, `^`, `<<` and `>>` take two `int` operands and return `int`. A compile-time shift count must be between zero and 31. Address-of uses `@`.
+
+### 5.5 Other arithmetic restrictions
 
 `char`, `byte` and `bool` cannot participate in ordinary arithmetic without explicit conversion to a numeric type.
 
@@ -204,6 +210,9 @@ An array initializer may provide any number of elements up to the declared size.
 Providing more elements than the declared capacity is a semantic error.
 
 When an array initializer is present but incomplete, trailing elements are zero-initialized using the zero value of their element type.
+
+A string literal may initialize a larger `char` array. The same trailing zero-initialization rule
+applies. Assignment and function arguments still require exactly matching array lengths.
 
 Initializer elements permit the same implicit `int ↔ float` conversions as variable initialization. Other conversions require explicit casts.
 
@@ -388,6 +397,9 @@ Every semantic diagnostic should contain:
 - Relevant identifier or expression.
 - Expected type and actual type, where applicable.
 
+Semantic source spans are half-open and use zero-indexed lines and columns. The CLI includes
+the input filename. Lexer and parser errors use the `LEX` and `SYN` prefixes.
+
 ### Suggested diagnostic catalogue
 
 | Code | Diagnostic |
@@ -396,7 +408,7 @@ Every semantic diagnostic should contain:
 | `SEM002` | Duplicate declaration or illegal shadowing |
 | `SEM003` | Invalid implicit conversion |
 | `SEM004` | Invalid operand types |
-| `SEM005` | Division or modulo by constant zero |
+| `SEM005` | Division by constant zero |
 | `SEM006` | Invalid function argument count or type |
 | `SEM007` | Invalid function return type |
 | `SEM008` | Missing return path |
@@ -415,3 +427,5 @@ Every semantic diagnostic should contain:
 | `SEM021` | Prohibited I/O operation |
 | `SEM022` | Invalid break, continue or return |
 | `SEM023` | Early exit from step |
+| `SEM024` | Missing main function |
+| `SEM025` | Unsupported expression or type |
