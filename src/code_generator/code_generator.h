@@ -16,9 +16,11 @@ using state_invs_t = std::unordered_map<std::string, std::vector<const invariant
 
 class code_generator : visitor {
 
+    // Expressions append to the current line. Completed statements leave a fresh line;
+    // block visitors indent the lines produced by their children after visiting them.
     std::vector<std::string> loc;
-    struct_impls_t impls; // struct name to decl
-    state_invs_t invs;    // state name to invs
+    struct_impls_t impls; // Struct name to borrowed method declarations.
+    state_invs_t invs;    // State name to borrowed invariant declarations.
     std::unordered_map<const invariant_decl *, std::string> invariant_names;
     struct state_binding {
         const void *identity;
@@ -27,6 +29,8 @@ class code_generator : visitor {
         bool immutable;
     };
     std::vector<std::unordered_map<std::string, state_binding>> scopes;
+    // Declaration/parameter addresses map reads and writes to the same candidate copy.
+    // Names alone would lose the connection between a binding and its invariant inputs.
     std::vector<std::unordered_map<const void *, std::string>> step_values;
     std::vector<const invariant_decl *> active_invariants;
     std::unordered_map<std::string, const struct_decl *> structs;

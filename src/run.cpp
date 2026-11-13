@@ -112,6 +112,8 @@ struct temporary_directory {
     }
 };
 
+// Pass arguments directly to the process API instead of constructing a shell command.
+// Paths containing spaces stay intact, and the child inherits terminal input/output.
 int execute(const std::vector<fs::path> &arguments) {
 #ifdef _WIN32
     std::vector<const wchar_t *> argv;
@@ -147,6 +149,8 @@ int execute(const std::vector<fs::path> &arguments) {
 } // namespace
 
 int run_generated(const std::vector<std::string> &code, const std::string &output_name, bool run) {
+    // Generation always leaves inspectable C++ on disk. Compiling and executing it is
+    // opt-in; only the executable is temporary, so diagnostics can refer to this source.
     const auto source = fs::absolute(output_name);
     {
         std::ofstream output(source);

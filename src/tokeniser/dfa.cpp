@@ -66,7 +66,8 @@ const graph_node identifier{
 // ---- keywords ----
 // One node per prefix. Any other identifier char falls back to identifier.
 
-// A complete keyword.
+// A complete keyword. Further identifier characters fall back to the identifier state,
+// so a name such as "integer" is not split into the keyword "int" and a suffix.
 graph_node keyword(token_type type) {
     return {type, edges({{is_identifier_char, &identifier}})};
 }

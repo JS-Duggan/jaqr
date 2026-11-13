@@ -340,6 +340,8 @@ class resolver {
         }
         for (const auto &decl : node.declarations)
             declaration(*decl);
+        // Propagate I/O through the call graph, including recursive cycles. A restricted
+        // context cannot evade the rule by calling a helper that prints or scans.
         bool changed;
         do {
             changed = false;

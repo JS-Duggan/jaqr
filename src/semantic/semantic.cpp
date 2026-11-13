@@ -25,6 +25,8 @@ semantic_error::semantic_error(std::string filename, std::string code, source_sp
       filename(std::move(filename)), code(std::move(code)), span(span), detail(std::move(detail)) {
 }
 
+// A resolved type descriptor, separate from the source's type-syntax nodes. Shared
+// element descriptors are compiler metadata, not ownership of JAQR runtime pointers.
 struct value_type {
     enum class form { PRIMITIVE, STRUCT, POINTER, ARRAY } shape = form::PRIMITIVE;
     primitive_type primitive = primitive_type::VOID;
@@ -114,6 +116,8 @@ class checker final : public visitor {
         bool immutable = false;
         const variable_decl *declaration = nullptr;
     };
+    // Type alone cannot decide whether assignment or an update is legal. Carry storage
+    // identity properties through member access/subscripts as well as the value's type.
     struct expr_result {
         value_type type;
         bool location = false;
@@ -151,6 +155,8 @@ class checker final : public visitor {
 
     expr_result evaluate(const expr &node, std::optional<value_type> expected = std::nullopt,
                          bool initializer = false) {
+        // Array literals need their enclosing expected type (including length). Restore
+        // it after each child so sibling expressions do not inherit the wrong context.
         const auto prior = expected_array;
         const bool prior_initializer = initializer_context;
         expected_array = std::move(expected);
@@ -193,6 +199,8 @@ class checker final : public visitor {
     }
     source_span current_call_span{0, 0, 0, 0};
 
+    // Compile-time integer evaluation for type constraints such as array lengths.
+    // This validates the source; the optimiser separately decides what to emit.
     std::optional<std::int32_t> constant(const expr &node) {
         if (const auto *number = dynamic_cast<const literal *>(&node)) {
             if (const auto *integer = std::get_if<std::int32_t>(&number->value))
@@ -288,6 +296,8 @@ class checker final : public visitor {
         return std::nullopt;
     }
 
+    // A structural proof: every if branch needs to return, including an else branch.
+    // Loops are not assumed to execute, so a return inside a loop alone is insufficient.
     static bool guarantees_return(const block_stmt &body) {
         for (const stmt_ptr &statement : body.statements) {
             if (dynamic_cast<const return_stmt *>(statement.get()))
@@ -326,6 +336,8 @@ class checker final : public visitor {
                  "exactly one fn main() is required");
 
         // Method calls on this can transmit receiver writes through recursive call chains.
+        // Wait until all bodies are checked, then propagate until no effect changes;
+        // a single pass would depend on method order and miss indirect writes.
         bool changed;
         do {
             changed = false;
@@ -741,6 +753,8 @@ class checker final : public visitor {
         }
     }
     void visit(const impl_decl &node) override {
+        // Register every signature before checking any body so methods within this impl
+        // can call one another, including recursively, regardless of their order.
         const struct_decl *structure =
             symbols.lookup_struct(node.type_name->lexeme).value_or(nullptr);
         if (!structure)

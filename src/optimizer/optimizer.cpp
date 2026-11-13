@@ -19,6 +19,8 @@ class optimizer {
         }
         return {};
     }
+    // Calculate in a wider type, but only substitute results representable by JAQR int.
+    // An unprovable result stays in the emitted program rather than wrapping here.
     void store_integer(const expr *node, std::int64_t value) {
         if (value >= std::numeric_limits<std::int32_t>::min() &&
             value <= std::numeric_limits<std::int32_t>::max())
@@ -68,6 +70,8 @@ class optimizer {
                     break; // Division, shifts and floating-point evaluation stay at runtime.
                 }
             }
+            // A known left operand may make the right operand unreachable through
+            // short-circuiting. A known right operand alone cannot justify dropping left.
             const auto lhs = plan.boolean(binary->left.get());
             const auto rhs = plan.boolean(binary->right.get());
             if (lhs) {
@@ -135,6 +139,9 @@ class optimizer {
         return false;
     }
 
+    // Prove the trip count only for a bounded integer-counter pattern. Calls, aliasing
+    // writes and body changes to the counter prevent that proof, so leave those loops.
+    // Both iteration and statement budgets bound compile time and generated code size.
     void unroll(const for_stmt &loop) {
         if (plan.boolean(loop.condition.get()) == false) {
             plan.unrolled.emplace(&loop, 0); // Preserve the initializer even for zero iterations.
@@ -262,6 +269,8 @@ class optimizer {
                     return;
             }
         }
+        // Walk backwards: a read needs the preceding value, while an assignment kills
+        // that need. Only known constant integer writes to unused locals may be dropped.
         std::unordered_set<std::string> live;
         for (auto it = block.statements.rbegin(); it != block.statements.rend(); ++it) {
             const auto *statement = it->get();

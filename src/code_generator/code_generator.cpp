@@ -84,6 +84,8 @@ std::string code_generator::state_value(const void *identity, const std::string 
     return cpp_name(name);
 }
 
+// Copying a pointer would still alias the original storage and make rollback ineffective.
+// Only recursively pointer-free value types can use this copy/validate/commit strategy.
 bool code_generator::can_copy_state(const type_syntax &type) const {
     std::unordered_set<std::string> visiting;
     const auto check = [&](const auto &self, const type_syntax &candidate) -> bool {
@@ -547,6 +549,7 @@ void code_generator::visit(const step_stmt &node) {
                                         name);
         const auto copy = std::format("{}value_{}", prefix, suffix);
         loc.back() += std::format("auto {} = {};", copy, target);
+        // A throwing assignment could leave only some originals committed after validation.
         loc.emplace_back("static_assert(std::is_nothrow_copy_assignable_v<decltype(" + copy +
                          ")>);");
         loc.emplace_back();
@@ -554,6 +557,8 @@ void code_generator::visit(const step_stmt &node) {
         commits.emplace_back(target, copy);
     }
 
+    // Redirect the whole body to candidates. Updates share them, and invariants run only
+    // after the body finishes, so intermediate states need not satisfy the invariants.
     step_values.push_back(std::move(values));
     scopes.emplace_back();
     step_scope_depth = scopes.size();
@@ -602,6 +607,8 @@ void code_generator::visit(const step_stmt &node) {
 
     active_invariants.resize(invariant_count);
     scopes.pop_back();
+    // End redirection before the reject body: it observes the unchanged original state.
+    // Without a reject body, failure simply discards the candidates and continues.
     step_values.pop_back();
     step_scope_depth = 0;
     if (node.reject_body) {
@@ -618,6 +625,8 @@ void code_generator::visit(const step_stmt &node) {
 
 // Declarations
 void code_generator::visit(const variable_decl &node) {
+    // Emit a reusable declaration fragment: the enclosing statement, global declaration
+    // or for header owns its separator. Trailing const makes pointer bindings T* const.
     node.declared_type->accept(*this);
     if (node.immutable)
         loc.back() += " const";
@@ -635,6 +644,8 @@ void code_generator::visit(const variable_decl &node) {
 }
 
 void code_generator::visit(const function_decl &node) {
+    // Update calls and definitions share an ABI: ordinary arguments by value first,
+    // followed by state arguments by reference. The surrounding step owns validation.
     in_update_function = node.kind == function_kind::UPDATE;
     scopes.emplace_back();
     if (node.name->lexeme == "main" && current_impl.empty()) {
@@ -739,6 +750,8 @@ void code_generator::visit(const impl_decl &node) {
 }
 
 void code_generator::visit(const invariant_decl &node) {
+    // Explicit const-reference inputs make the condition reusable with candidate state;
+    // capturing the original variables would validate the wrong values during a step.
     if (!step_values.empty() && scopes.size() != step_scope_depth)
         throw std::invalid_argument(
             "An invariant inside a step must be declared directly in its body");

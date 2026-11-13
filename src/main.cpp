@@ -49,12 +49,15 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        // Keep line boundaries for lexer positions and to separate tokens on adjacent lines.
         std::vector<std::vector<char>> data;
         std::string line;
         while (std::getline(file, line)) {
             data.emplace_back(line.begin(), line.end());
             data.back().push_back('\n');
         }
+        // Validate before optimising/emitting: unreachable code must still obey JAQR's rules.
+        // The analysis result owns the AST while the generator borrows its declaration indexes.
         auto analysed = analyse(parse(tokenise(data)), filename);
         auto &[root, impls, invs] = analysed;
         return run_generated(code_generator{impls, invs}.gen_code(*root), output_name, run);

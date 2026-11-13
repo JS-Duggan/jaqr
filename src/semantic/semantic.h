@@ -18,6 +18,8 @@ class semantic_error : public std::runtime_error {
     semantic_error(std::string filename, std::string code, source_span span, std::string detail);
 };
 
+// Own the checked tree together with indexes borrowing nodes inside it. Consumers must
+// keep ast alive; the maps provide associations, not a second owner of declarations.
 struct analysis_root {
     program_ptr ast;
     std::unordered_map<std::string, std::vector<const function_decl *>> impls;

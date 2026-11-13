@@ -8,7 +8,7 @@
 
 template <class Variable, class Structure, class Function> class symbol_table {
     using scope = std::unordered_map<std::string, Variable>;
-    std::vector<scope> scopes{1}; // chucking globals here
+    std::vector<scope> scopes{1}; // The outermost scope holds global variables.
     std::unordered_map<std::string, Structure> structs;
     std::unordered_map<std::string, Function> functions;
     std::unordered_map<std::string, std::unordered_map<std::string, Function>> methods;
@@ -18,6 +18,7 @@ template <class Variable, class Structure, class Function> class symbol_table {
     }
 
   public:
+    // Tie scope removal to the visitor's lifetime, including exits caused by diagnostics.
     class scope_guard {
         symbol_table *owner;
         explicit scope_guard(symbol_table &table) : owner(&table) {
@@ -63,6 +64,8 @@ template <class Variable, class Structure, class Function> class symbol_table {
         return std::nullopt;
     }
 
+    // JAQR rejects shadowing visible variables and collisions across global categories.
+    // Methods instead have a separate namespace per owning struct.
     bool declare_variable(std::string name, Variable symbol) {
         if (lookup_variable(name) || structs.contains(name) || functions.contains(name))
             return false;

@@ -5,6 +5,8 @@
 #include "../ast/statement.h"
 #include "../ast/type.h"
 
+// Each node's accept() selects its concrete overload. This keeps pass-specific logic
+// outside the AST and makes missing node handlers a compile-time error for visitors.
 class visitor {
   public:
     virtual ~visitor() = default;

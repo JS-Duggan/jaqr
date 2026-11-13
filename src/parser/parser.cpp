@@ -24,6 +24,9 @@
 #include <utility>
 #include <vector>
 
+// Recursive descent builds syntax only; name binding and type rules belong to analysis.
+// Expression precedence follows the call hierarchy. Repetition builds left-associative
+// operators, while assignment and exponentiation recurse for right associativity.
 class Parser {
   public:
     explicit Parser(const std::vector<token> &tokens) : tokens(tokens), cur_index(0) {

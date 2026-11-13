@@ -120,6 +120,8 @@ struct impl_decl : decl {
 struct invariant_decl : decl {
     void accept(visitor &v) const override;
 
+    // Filled by semantic analysis from the condition's referenced state declarations.
+    // Borrowed node identities distinguish dependencies without duplicating AST ownership.
     std::vector<const variable_decl *> state_vars;
     expr_ptr condition;
 
@@ -127,6 +129,8 @@ struct invariant_decl : decl {
     }
 };
 
+// Ownership flows from this root through unique_ptr children. Passes may index nodes
+// by address, provided the root stays alive and those nodes are not replaced.
 struct program {
     void accept(visitor &v) const;
 
