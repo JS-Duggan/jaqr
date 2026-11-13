@@ -49,7 +49,7 @@ lint *args: configure
         SDKROOT="${SDKROOT:-$(xcrun --show-sdk-path)}"
         export SDKROOT
     fi
-    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {{args}} {} +
+    find src -type f -name '*.cpp' -exec "$tidy_executable" -p build/debug {{ args }} {} +
 
 clean:
     cmake -E rm -rf build
