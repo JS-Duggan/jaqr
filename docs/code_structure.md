@@ -144,7 +144,7 @@ type forces every pass to handle it at compile time.
 `SEM017`, the `source_span` and a message. Checks include:
 
 - Declaration before use, no duplicates, no shadowing (`SEM001`, `SEM002`).
-- Type rules, implicit `int ↔ float` only, exact types at call/return (`SEM003`–`SEM007`).
+- Type rules, implicit `int ↔ float` only, exact types at call/return (`SEM003`), operand types (`SEM004`), argument count and return presence (`SEM006`, `SEM007`).
 - All paths of a non-void function return (`SEM008`).
 - `imut` initialisation and immutability (`SEM011`, `SEM012`).
 - Array lengths/initialisers/indexes and pointer rules (`SEM013`–`SEM016`).
@@ -231,7 +231,7 @@ operator and literal form, casts, control flow, functions, recursion, arrays,
 pointers, structs and methods, globals, steps (commit, rollback, atomicity across
 several state variables, arrays and struct state), C++ name collisions and
 optimiser rewrites. The reject cases cover each diagnostic in
-[`semantic_spec.md`](semantic_spec.md#suggested-diagnostic-catalogue).
+[`semantic_spec.md`](semantic_spec.md#diagnostic-catalogue).
 
 To add a case, drop the files into the right folder. No registration is needed.
 

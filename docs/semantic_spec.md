@@ -400,24 +400,29 @@ Every semantic diagnostic should contain:
 Semantic source spans are half-open and use zero-indexed lines and columns. The CLI includes
 the input filename. Lexer and parser errors use the `LEX` and `SYN` prefixes.
 
-### Suggested diagnostic catalogue
+### Diagnostic catalogue
+
+Each error reports exactly one of these codes. When a program breaks several rules
+at once, the first check to fail decides the code. Type mismatches are found
+first, so a wrong argument, return or index type is `SEM003`, not a more specific
+code.
 
 | Code | Diagnostic |
 |---|---|
-| `SEM001` | Undeclared identifier |
-| `SEM002` | Duplicate declaration or illegal shadowing |
-| `SEM003` | Invalid implicit conversion |
-| `SEM004` | Invalid operand types |
+| `SEM001` | Unknown name, type, struct or field. Also a call to a function that is not defined yet, including mutual recursion, and `this` outside a method |
+| `SEM002` | Duplicate declaration or illegal shadowing, including duplicate functions, methods, fields and structs, and an invalid `main` signature |
+| `SEM003` | Value of the wrong type: invalid implicit conversion, wrong argument type, wrong return value type, non-`int` array index |
+| `SEM004` | Invalid operand types, condition, conversion, member access or statement |
 | `SEM005` | Division by constant zero |
-| `SEM006` | Invalid function argument count or type |
-| `SEM007` | Invalid function return type |
+| `SEM006` | Wrong number of arguments, or calling something that is not a function |
+| `SEM007` | Missing return value, or an update function that returns a value |
 | `SEM008` | Missing return path |
-| `SEM009` | Function referenced before definition |
-| `SEM010` | Duplicate function name |
-| `SEM011` | Immutable variable not initialized |
+| `SEM009` | Not used. A call before the definition reports `SEM001` |
+| `SEM010` | Not used. A duplicate function reports `SEM002` |
+| `SEM011` | Not reached from source. The grammar requires initializers for `state` and `imut`, so a missing one is `SYN001` |
 | `SEM012` | Modification of immutable storage |
 | `SEM013` | Invalid array length or initializer |
-| `SEM014` | Invalid array index type |
+| `SEM014` | Indexing something that is not an array or pointer |
 | `SEM015` | Incompatible pointer operation |
 | `SEM016` | Invalid address-of operand |
 | `SEM017` | State mutation outside permitted context |
@@ -425,7 +430,7 @@ the input filename. Lexer and parser errors use the `LEX` and `SYN` prefixes.
 | `SEM019` | Nested step |
 | `SEM020` | Invalid invariant expression |
 | `SEM021` | Prohibited I/O operation |
-| `SEM022` | Invalid break, continue or return |
+| `SEM022` | Not used. There is no `break` or `continue`, and invalid `return`s report `SEM023` or `SEM007` |
 | `SEM023` | Early exit from step |
 | `SEM024` | Missing main function |
 | `SEM025` | Unsupported expression or type |
