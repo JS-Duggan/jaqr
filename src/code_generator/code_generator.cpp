@@ -50,11 +50,13 @@ std::string quoted_literal(std::string_view value, char quote) {
 } // namespace
 
 void code_generator::visit(const program &node) {
-    loc.clear();
-    loc.emplace_back();
-
     for (const auto &declr : node.declarations) {
         declr->accept(*this);
+
+        if (dynamic_cast<const variable_decl *>(declr.get())) {
+            loc.back() += ';';
+            loc.emplace_back();
+        }
     }
 }
 
@@ -147,9 +149,8 @@ void code_generator::visit(const unary_expr &node) {
 }
 
 void code_generator::visit(const postfix_expr &node) {
-    loc.back() += "((";
+    loc.back() += '(';
     node.obj->accept(*this);
-    loc.back() += ')';
 
     switch (node.op) {
     case postfix_op::FUNCT_CALL: {
@@ -216,7 +217,7 @@ void code_generator::visit(const literal &node) {
 }
 
 void code_generator::visit(const identifier &node) {
-    loc.back() += "(" + node.lexeme + ")";
+    loc.back() += node.lexeme;
 }
 
 void code_generator::visit(const assignment_expr &node) {
@@ -274,12 +275,18 @@ void code_generator::visit(const this_expr &node) {
 
 // Statements
 void code_generator::visit(const block_stmt &node) {
-    loc.emplace_back("{");
+    loc.back() += '{';
+    const auto body_start = loc.size();
     loc.emplace_back();
     for (const auto &stmt : node.statements) {
         stmt->accept(*this);
     }
-    loc.push_back("}");
+    // Indent body lines, leaving the fresh final line for the closing brace.
+    for (auto i = body_start; i < loc.size(); ++i) {
+        if (!loc[i].empty())
+            loc[i].insert(0, 4, ' ');
+    }
+    loc.back() += '}';
     loc.emplace_back();
 }
 
@@ -347,9 +354,9 @@ void code_generator::visit(const step_stmt &node) {
 
 // Declarations
 void code_generator::visit(const variable_decl &node) {
+    node.declared_type->accept(*this);
     if (node.immutable)
         loc.back() += "const ";
-    node.declared_type->accept(*this);
     loc.back() += " " + node.name->lexeme;
 
     if (node.initializer) {
@@ -398,12 +405,14 @@ void code_generator::visit(const function_decl &node) {
 
 void code_generator::visit(const struct_decl &node) {
     loc.back() += "struct " + node.name->lexeme + " {";
+    loc.emplace_back();
     for (const auto &field : node.fields) {
-        loc.emplace_back();
+        loc.back() += "    ";
         field.declared_type->accept(*this);
         loc.back() += " " + field.name + ";";
+        loc.emplace_back();
     }
-    loc.emplace_back("};");
+    loc.back() += "};";
     loc.emplace_back();
 
     // function declarations (no body) to go here:
@@ -458,4 +467,16 @@ void code_generator::visit(const array_type_syntax &node) {
     loc.back() += ", ";
     node.size->accept(*this);
     loc.back() += '>';
+}
+
+std::vector<std::string> code_generator::gen_code(const program &node) {
+    loc.clear();
+    loc.emplace_back("#include <cstdint>");
+    loc.emplace_back("#include <cstddef>");
+    loc.emplace_back("#include <cmath>");
+    loc.emplace_back("#include <array>");
+    loc.emplace_back();
+
+    visit(node);
+    return loc;
 }
