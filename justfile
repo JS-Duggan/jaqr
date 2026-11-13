@@ -7,8 +7,8 @@ build: configure
     cmake --build --preset debug
 
 [positional-arguments]
-run source: build
-    ./build/debug/jaqr "$1"
+run source *args: build
+    ./build/debug/jaqr "$@"
 
 release:
     cmake --preset release

@@ -146,7 +146,7 @@ int execute(const std::vector<fs::path> &arguments) {
 }
 } // namespace
 
-int run_generated(const std::vector<std::string> &code, const std::string &output_name) {
+int run_generated(const std::vector<std::string> &code, const std::string &output_name, bool run) {
     const auto source = fs::absolute(output_name);
     {
         std::ofstream output(source);
@@ -159,6 +159,8 @@ int run_generated(const std::vector<std::string> &code, const std::string &outpu
         if (!output)
             throw std::runtime_error("Could not finish generated C++");
     }
+    if (!run)
+        return 0;
 
     const auto compiler = find_compiler();
     temporary_directory temp;

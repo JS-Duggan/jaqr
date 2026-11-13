@@ -9,23 +9,32 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 int main(int argc, char *argv[]) {
     try {
         const char *filename = nullptr;
         const char *output_name = "a.cpp";
-        if (argc == 2) {
-            filename = argv[1];
-        } else if (argc == 4 && std::string(argv[1]) == "-o") {
-            output_name = argv[2];
-            filename = argv[3];
-        } else if (argc == 4 && std::string(argv[2]) == "-o") {
-            filename = argv[1];
-            output_name = argv[3];
+        bool run = false;
+        bool named_output = false;
+        bool invalid = false;
+        for (int i = 1; i < argc; ++i) {
+            const std::string_view arg = argv[i];
+            if (arg == "--exec" && !run) {
+                run = true;
+            } else if (arg == "-o" && !named_output && i + 1 < argc && *argv[i + 1]) {
+                named_output = true;
+                output_name = argv[++i];
+            } else if (!filename && !arg.empty() && arg.front() != '-') {
+                filename = argv[i];
+            } else {
+                invalid = true;
+                break;
+            }
         }
-        if (!filename || !*output_name) {
-            std::cerr << "Usage: jaqr <source.jaqr> [-o <output.cpp>]\n";
+        if (!filename || invalid) {
+            std::cerr << "Usage: jaqr [--exec] <source.jaqr> [-o <output.cpp>]\n";
             return 1;
         }
 
@@ -48,7 +57,7 @@ int main(int argc, char *argv[]) {
         }
         auto analysed = analyse(parse(tokenise(data)), filename);
         auto &[root, impls, invs] = analysed;
-        return run_generated(code_generator{impls, invs}.gen_code(*root), output_name);
+        return run_generated(code_generator{impls, invs}.gen_code(*root), output_name, run);
     } catch (const semantic_error &error) {
         std::cerr << error.what() << '\n';
         return 1;
