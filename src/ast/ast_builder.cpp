@@ -9,8 +9,6 @@
 #include "statement_base.h"
 #include "type.h"
 
-// TODO: I include these in the header so i dont need to include them here as well? I forgot if
-// including it is idomatic or not
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,7 +25,7 @@ static std::unique_ptr<node_type> make_node(const source_span &span, arg_types &
 // ---- Root ----
 
 ast_root_ptr make_ast_root(std::vector<decl_ptr> decls) {
-    return std::make_unique<ast_root>(std::move(decls));
+    return make_program(std::move(decls));
 }
 
 // ---- Expressions ----

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 class visitor;
@@ -18,6 +19,24 @@ struct type_syntax {
 };
 
 enum class primitive_type : std::uint8_t { INT, FLOAT, CHAR, BOOL, BYTE, VOID };
+
+constexpr std::string_view spelling(primitive_type type) {
+    switch (type) {
+    case primitive_type::INT:
+        return "int";
+    case primitive_type::FLOAT:
+        return "float";
+    case primitive_type::CHAR:
+        return "char";
+    case primitive_type::BOOL:
+        return "bool";
+    case primitive_type::BYTE:
+        return "byte";
+    case primitive_type::VOID:
+        return "void";
+    }
+    return "<invalid type>";
+}
 
 using type_ptr = std::unique_ptr<type_syntax>;
 

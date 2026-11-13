@@ -90,15 +90,14 @@ static std::string printable(char ch) {
 
 // positions in error messages are 0-indexed
 [[noreturn]] static void report_unexpected_char(char ch, const position &pos) {
-    throw std::runtime_error(
-        std::format("Lexer error: unexpected character '{}' at line {}, column {}", printable(ch),
-                    pos.line, pos.col));
+    throw std::runtime_error(std::format("LEX001: unexpected character '{}' at line {}, column {}",
+                                         printable(ch), pos.line, pos.col));
 }
 
 [[noreturn]] static void report_unexpected_end(const std::vector<std::vector<char>> &input,
                                                const position &token_start) {
     throw std::runtime_error(std::format(
-        "Lexer error: unexpected end of input at line {}, column {} (unfinished token starts at "
+        "LEX002: unexpected end of input at line {}, column {} (unfinished token starts at "
         "line {}, column {})",
         input.size() - 1, input.back().size(), token_start.line, token_start.col));
 }
