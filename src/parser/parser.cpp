@@ -296,12 +296,14 @@ class Parser {
 
     // the value of a float literal: 1.5, .5 or 1.
     static double float_value(const token &literal_token) {
-        const std::string &lexeme = literal_token.lexeme;
         double value = 0;
-        const std::from_chars_result result =
-            std::from_chars(lexeme.data(), lexeme.data() + lexeme.size(), value);
-        if (result.ec != std::errc())
+
+        try {
+            value = std::stod(literal_token.lexeme);
+        } catch (const std::out_of_range &) {
             report_literal_out_of_range(literal_token);
+        }
+
         return value;
     }
 
