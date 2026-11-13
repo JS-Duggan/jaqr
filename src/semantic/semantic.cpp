@@ -16,12 +16,14 @@
 #include <variant>
 #include <vector>
 
-namespace {
-[[noreturn]] void fail(const char *code, const source_span &span, const std::string &message) {
-    throw std::runtime_error(std::format("{} at line {}, column {}: {}", code, span.start_line,
-                                         span.start_col, message));
+semantic_error::semantic_error(std::string filename, std::string code, source_span span,
+                               std::string detail)
+    : std::runtime_error(std::format("{}:{}:{}-{}:{}: {}: {}", filename, span.start_line,
+                                     span.start_col, span.end_line, span.end_col, code, detail)),
+      filename(std::move(filename)), code(std::move(code)), span(span), detail(std::move(detail)) {
 }
 
+namespace {
 struct value_type {
     enum class form { PRIMITIVE, STRUCT, POINTER, ARRAY } shape = form::PRIMITIVE;
     primitive_type primitive = primitive_type::VOID;
@@ -95,6 +97,13 @@ bool compatible(const value_type &expected, const value_type &actual) {
 }
 
 class checker final : public visitor {
+    std::string filename;
+
+    [[noreturn]] void fail(const char *code, const source_span &span,
+                           const std::string &message) const {
+        throw semantic_error(filename, code, span, message);
+    }
+
     struct binding {
         value_type type;
         bool state = false;
@@ -146,14 +155,14 @@ class checker final : public visitor {
         expected_array = prior;
         initializer_context = prior_initializer;
         if (!result)
-            fail("SEM000", node.source, "expression is not supported yet");
+            fail("SEM025", node.source, "expression is not supported yet");
         return *result;
     }
     value_type resolve(const type_syntax &node) {
         resolved_type.reset();
         node.accept(*this);
         if (!resolved_type)
-            fail("SEM000", node.source, "type is not supported yet");
+            fail("SEM025", node.source, "type is not supported yet");
         return *resolved_type;
     }
     void require(const value_type &expected, const value_type &actual, const source_span &span,
@@ -294,13 +303,16 @@ class checker final : public visitor {
     }
 
   public:
+    explicit checker(std::string filename) : filename(std::move(filename)) {
+    }
+
     void run(const program &root) {
         global_mode = true;
         for (const decl_ptr &entry : root.declarations)
             entry->accept(*this);
         global_mode = false;
         if (main_count != 1)
-            fail("SEM000",
+            fail("SEM024",
                  root.declarations.empty() ? source_span{0, 0, 0, 0}
                                            : root.declarations.back()->source,
                  "exactly one fn main() is required");
@@ -815,6 +827,6 @@ class checker final : public visitor {
 };
 } // namespace
 
-void analyse(const program &root) {
-    checker{}.run(root);
+void analyse(const program &root, std::string_view filename) {
+    checker{std::string(filename)}.run(root);
 }

@@ -1,11 +1,11 @@
+#include "parser/parser.h"
+#include "semantic/semantic.h"
+#include "tokeniser/tokeniser.h"
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-#include "parser/parser.h"
-#include "semantic/semantic.h"
-#include "tokeniser/tokeniser.h"
 
 int main(int argc, char *argv[]) {
     try {
@@ -30,9 +30,15 @@ int main(int argc, char *argv[]) {
             data.back().push_back('\n');
         }
         program_ptr root = parse(tokenise(data));
-        analyse(*root);
+        analyse(*root, argv[1]);
+    } catch (const semantic_error &error) {
+        std::cerr << error.what() << '\n';
+        return 1;
     } catch (const std::exception &error) {
-        std::cerr << "Error: " << error.what() << '\n';
+        std::cerr << "Error: ";
+        if (argc == 2)
+            std::cerr << argv[1] << ": ";
+        std::cerr << error.what() << '\n';
         return 1;
     }
 }

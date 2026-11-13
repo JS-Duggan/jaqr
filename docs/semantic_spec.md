@@ -397,6 +397,9 @@ Every semantic diagnostic should contain:
 - Relevant identifier or expression.
 - Expected type and actual type, where applicable.
 
+Semantic source spans are half-open and use zero-indexed lines and columns. The CLI includes
+the input filename. Lexer and parser errors use the `LEX` and `SYN` prefixes.
+
 ### Suggested diagnostic catalogue
 
 | Code | Diagnostic |
@@ -405,7 +408,7 @@ Every semantic diagnostic should contain:
 | `SEM002` | Duplicate declaration or illegal shadowing |
 | `SEM003` | Invalid implicit conversion |
 | `SEM004` | Invalid operand types |
-| `SEM005` | Division or modulo by constant zero |
+| `SEM005` | Division by constant zero |
 | `SEM006` | Invalid function argument count or type |
 | `SEM007` | Invalid function return type |
 | `SEM008` | Missing return path |
@@ -424,3 +427,5 @@ Every semantic diagnostic should contain:
 | `SEM021` | Prohibited I/O operation |
 | `SEM022` | Invalid break, continue or return |
 | `SEM023` | Early exit from step |
+| `SEM024` | Missing main function |
+| `SEM025` | Unsupported expression or type |

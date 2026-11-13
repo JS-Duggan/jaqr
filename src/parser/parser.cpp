@@ -57,9 +57,8 @@ class Parser {
 
     [[noreturn]] static void report_unexpected_token(const token &errored_token) {
         throw std::runtime_error(
-            std::format("SYN001: unexpected token '{}' of type {} at line {}, column {}",
-                        errored_token.lexeme, static_cast<int>(errored_token.type),
-                        errored_token.line, errored_token.column));
+            std::format("SYN001: unexpected token '{}' at line {}, column {}",
+                        errored_token.lexeme, errored_token.line, errored_token.column));
     }
 
     [[noreturn]] void report_unexpected_end() const {
