@@ -2,6 +2,7 @@
 
 #include "../symbol_table/symbol_table.h"
 #include "../visitor/visitor.h"
+#include <cmath>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -221,6 +222,58 @@ class checker final : public visitor {
         return std::nullopt;
     }
 
+    std::optional<double> numeric_constant(const expr &node) {
+        // Preserve integer division when a constant expression contains only integers.
+        if (const auto integer = constant(node))
+            return static_cast<double>(*integer);
+        if (const auto *number = dynamic_cast<const literal *>(&node)) {
+            if (const auto *integer = std::get_if<std::int32_t>(&number->value))
+                return static_cast<double>(*integer);
+            if (const auto *floating = std::get_if<double>(&number->value))
+                return *floating;
+        }
+        if (const auto *unary = dynamic_cast<const unary_expr *>(&node)) {
+            if (unary->operation == unary_op::NEGATE) {
+                if (const auto operand = numeric_constant(*unary->right))
+                    return -*operand;
+            }
+        }
+        if (const auto *cast = dynamic_cast<const conversion_expr *>(&node)) {
+            const auto *type = dynamic_cast<const primitive_type_syntax *>(cast->target_type.get());
+            const auto operand = numeric_constant(*cast->value);
+            if (type && operand && std::isfinite(*operand)) {
+                if (type->type == primitive_type::FLOAT)
+                    return *operand;
+                if (type->type == primitive_type::INT &&
+                    *operand >= std::numeric_limits<std::int32_t>::min() &&
+                    *operand <= std::numeric_limits<std::int32_t>::max())
+                    return std::trunc(*operand);
+            }
+        }
+        if (const auto *binary = dynamic_cast<const binary_expr *>(&node)) {
+            const auto left = numeric_constant(*binary->left);
+            const auto right = numeric_constant(*binary->right);
+            if (!left || !right)
+                return std::nullopt;
+            switch (binary->operation) {
+            case binary_op::ADD:
+                return *left + *right;
+            case binary_op::SUBTRACT:
+                return *left - *right;
+            case binary_op::MULTIPLY:
+                return *left * *right;
+            case binary_op::DIVIDE:
+            case binary_op::FLOOR_DIVIDE:
+                if (*right != 0)
+                    return *left / *right;
+                break;
+            default:
+                break;
+            }
+        }
+        return std::nullopt;
+    }
+
     static bool guarantees_return(const block_stmt &body) {
         for (const stmt_ptr &statement : body.statements) {
             if (dynamic_cast<const return_stmt *>(statement.get()))
@@ -351,13 +404,13 @@ class checker final : public visitor {
                 result = expr_result{value_type::pointer(operand.type)};
                 return;
             }
-            break;
+            fail("SEM016", node.source, "address-of requires mutable non-state storage");
         case unary_op::DEREFERENCE:
             if (operand.type.shape == value_type::form::POINTER) {
                 result = expr_result{*operand.type.element, true};
                 return;
             }
-            break;
+            fail("SEM015", node.source, "dereference requires a pointer");
         }
         fail("SEM004", node.source, "invalid unary operand");
     }
@@ -378,12 +431,21 @@ class checker final : public visitor {
                 result = expr_result{left};
                 return;
             }
+            if (node.operation == binary_op::ADD && numeric(left) &&
+                left.primitive == primitive_type::INT && right.shape == value_type::form::POINTER) {
+                result = expr_result{right};
+                return;
+            }
             [[fallthrough]];
         case binary_op::MULTIPLY:
         case binary_op::DIVIDE:
         case binary_op::FLOOR_DIVIDE:
         case binary_op::EXPONENT:
             if (both_numeric) {
+                if ((node.operation == binary_op::DIVIDE ||
+                     node.operation == binary_op::FLOOR_DIVIDE) &&
+                    numeric_constant(*node.right) == 0.0)
+                    fail("SEM005", node.right->source, "division by constant zero");
                 result = expr_result{value_type{left.primitive == primitive_type::FLOAT ||
                                                         right.primitive == primitive_type::FLOAT
                                                     ? primitive_type::FLOAT
@@ -399,6 +461,12 @@ class checker final : public visitor {
             if (left.shape == value_type::form::PRIMITIVE &&
                 right.shape == value_type::form::PRIMITIVE &&
                 left.primitive == primitive_type::INT && right.primitive == primitive_type::INT) {
+                if (node.operation == binary_op::LEFT_SHIFT ||
+                    node.operation == binary_op::RIGHT_SHIFT) {
+                    const auto shift = constant(*node.right);
+                    if (shift && (*shift < 0 || *shift >= 32))
+                        fail("SEM004", node.right->source, "shift count must be between 0 and 31");
+                }
                 result = expr_result{value_type{primitive_type::INT}};
                 return;
             }
@@ -431,6 +499,8 @@ class checker final : public visitor {
             }
             break;
         }
+        if (left.shape == value_type::form::POINTER || right.shape == value_type::form::POINTER)
+            fail("SEM015", node.source, "invalid pointer operation");
         fail("SEM004", node.source, "invalid binary operand types");
     }
     void visit(const assignment_expr &node) override {

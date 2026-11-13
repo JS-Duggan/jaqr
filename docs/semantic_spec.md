@@ -141,7 +141,7 @@ Explicit casts do not permit arbitrary reinterpretation between pointers, arrays
 
 ### 5.1 Arithmetic
 
-Ordinary arithmetic operators `+`, `-`, `*` and `/` accept `int` and `float` operands only, except for the separately defined pointer operations.
+Ordinary arithmetic operators `+`, `-`, `*`, `/`, `\` and `~` accept `int` and `float` operands only, except for the separately defined pointer operations. The grammar uses `\` for floor division and `~` for exponentiation.
 
 | Operands | Result type |
 |---|---|
@@ -154,11 +154,9 @@ Integer division returns an integer and truncates towards zero.
 
 Examples: `5 / 2 = 2` and `-5 / 2 = -2`.
 
-`%` accepts only two `int` operands and returns `int`. Remainder follows C++ semantics, with the sign of a nonzero remainder matching the dividend.
+Division by a compile-time constant zero divisor is a semantic error for both `/` and `\`.
 
-Division or modulo with a compile-time constant zero divisor is a semantic error.
-
-Division or modulo with a dynamically evaluated zero divisor must raise a runtime error, including floating-point division by zero.
+Division by a dynamically evaluated zero divisor must raise a runtime error, including floating-point division by zero.
 
 ### 5.2 Comparisons
 
@@ -173,7 +171,7 @@ Equality between `char`, `byte` and `bool` requires both operands to have exactl
 
 Boolean ordering comparisons are prohibited.
 
-Pointer equality comparisons are allowed only for identical pointer types or a compatible pointer and `null`. Pointer ordering comparisons are prohibited.
+Pointer equality comparisons are allowed only for identical pointer types. Pointer ordering comparisons are prohibited.
 
 ### 5.3 Logical operators
 
@@ -183,7 +181,11 @@ All logical operators return `bool`.
 
 `&&` and `||` use short-circuit evaluation.
 
-### 5.4 Other arithmetic restrictions
+### 5.4 Bitwise and shift operators
+
+`&`, `|`, `^`, `<<` and `>>` take two `int` operands and return `int`. A compile-time shift count must be between zero and 31. Address-of uses `@`.
+
+### 5.5 Other arithmetic restrictions
 
 `char`, `byte` and `bool` cannot participate in ordinary arithmetic without explicit conversion to a numeric type.
 
