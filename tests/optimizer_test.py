@@ -4,7 +4,8 @@ import subprocess
 import sys
 import tempfile
 
-fixture, compiler = sys.argv[1:]
+fixture, compiler = sys.argv[1:3]
+include_flags = ["-I", sys.argv[3]] if len(sys.argv) > 3 else []
 with tempfile.TemporaryDirectory(prefix="jaqr-optimizer-") as directory:
     root = pathlib.Path(directory)
     for mode, arguments in (("optimized", []), ("plain", ["--no-optimize"])):
@@ -12,5 +13,5 @@ with tempfile.TemporaryDirectory(prefix="jaqr-optimizer-") as directory:
         source.write_text(subprocess.check_output([fixture, *arguments], text=True))
         for level in ("-O0", "-O2"):
             binary = root / (mode + level)
-            subprocess.run([compiler, "-std=c++20", level, str(source), "-o", str(binary)], check=True)
+            subprocess.run([compiler, "-std=c++20", level, *include_flags, str(source), "-o", str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
