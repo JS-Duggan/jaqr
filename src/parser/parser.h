@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../ast/ast_root.h"
+#include "../ast/declaration.h"
 #include "../tokens/token.h"
 #include <vector>
 
-ast_root_ptr parse(const std::vector<token> &tokens);
+program_ptr parse(const std::vector<token> &tokens);

@@ -1,5 +1,5 @@
 #pragma once
 
-#include "../ast/ast_root.h"
+#include "../ast/declaration.h"
 
-void analyse(const ast_root &root);
+void analyse(const program &root);

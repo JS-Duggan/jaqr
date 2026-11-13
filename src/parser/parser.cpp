@@ -1,6 +1,5 @@
 #include "parser.h"
 #include "../ast/ast_builder.h"
-#include "../ast/ast_root.h"
 #include "../ast/declaration.h"
 #include "../ast/expression.h"
 #include "../ast/expression_base.h"
@@ -31,7 +30,7 @@ class Parser {
     }
 
     // builds the AST of the whole program. throws std::runtime_error on a syntax error
-    ast_root_ptr parse() {
+    program_ptr parse() {
         return parse_program();
     }
 
@@ -341,8 +340,8 @@ class Parser {
     // ---------------------------------------------------------------------------------------
 
     // program = { topLevelDeclaration } EOF ;
-    ast_root_ptr parse_program() {
-        ast_root_ptr root = make_ast_root();
+    program_ptr parse_program() {
+        program_ptr root = make_program();
         while (!at_end()) {
             root->declarations.push_back(parse_top_level_declaration());
         }
@@ -1239,7 +1238,7 @@ class Parser {
     }
 };
 
-ast_root_ptr parse(const std::vector<token> &tokens) {
+program_ptr parse(const std::vector<token> &tokens) {
     Parser p(tokens);
     return p.parse();
 }

@@ -1,5 +1,6 @@
 #include "semantic.h"
 
+#include "../symbol_table/symbol_table.h"
 #include "../visitor/visitor.h"
 #include <cstdint>
 #include <format>
@@ -10,7 +11,9 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace {
 [[noreturn]] void fail(const char *code, const source_span &span, const std::string &message) {
@@ -104,13 +107,21 @@ class checker final : public visitor {
         const function_decl *callable = nullptr;
         bool statement = false;
         bool receiver = false;
+        bool receiver_storage = false;
+    };
+    struct method_call {
+        const function_decl *method;
+        const function_decl *caller;
+        source_span source;
+        bool location;
+        bool state;
+        bool immutable;
+        bool through_receiver;
     };
 
-    std::unordered_map<std::string, binding> globals;
-    std::unordered_map<std::string, binding> locals;
-    std::unordered_map<std::string, const struct_decl *> structs;
-    std::unordered_map<std::string, const function_decl *> functions;
-    std::unordered_map<std::string, std::unordered_map<std::string, const function_decl *>> methods;
+    symbol_table<binding, const struct_decl *, const function_decl *> symbols;
+    std::unordered_map<const function_decl *, bool> writes_receiver;
+    std::vector<method_call> method_calls;
     std::optional<expr_result> result;
     std::optional<value_type> resolved_type;
     std::optional<value_type> expected_array;
@@ -122,14 +133,6 @@ class checker final : public visitor {
     bool in_step = false;
     bool in_reject = false;
     bool in_invariant = false;
-
-    const binding *lookup(const std::string &name) const {
-        if (const auto it = locals.find(name); it != locals.end())
-            return &it->second;
-        if (const auto it = globals.find(name); it != globals.end())
-            return &it->second;
-        return nullptr;
-    }
 
     expr_result evaluate(const expr &node, std::optional<value_type> expected = std::nullopt,
                          bool initializer = false) {
@@ -159,10 +162,8 @@ class checker final : public visitor {
                  std::format("expected {}, got {}", describe(expected), describe(actual)));
     }
     void declare(const std::string &name, binding symbol, const source_span &span) {
-        if (locals.contains(name) || globals.contains(name) || functions.contains(name) ||
-            structs.contains(name))
+        if (!symbols.declare_variable(name, std::move(symbol)))
             fail("SEM002", span, "duplicate name '" + name + "'");
-        (global_mode ? globals : locals).emplace(name, std::move(symbol));
     }
     void arguments(const std::vector<parameter> &params, const arg_list &args, bool state_args) {
         if (params.size() != args.size())
@@ -240,7 +241,7 @@ class checker final : public visitor {
     }
 
   public:
-    void run(const ast_root &root) {
+    void run(const program &root) {
         global_mode = true;
         for (const decl_ptr &entry : root.declarations)
             entry->accept(*this);
@@ -250,6 +251,27 @@ class checker final : public visitor {
                  root.declarations.empty() ? source_span{0, 0, 0, 0}
                                            : root.declarations.back()->source,
                  "exactly one fn main() is required");
+
+        // Method calls on this can transmit receiver writes through recursive call chains.
+        bool changed;
+        do {
+            changed = false;
+            for (const method_call &call : method_calls) {
+                if (call.caller && call.through_receiver && writes_receiver[call.method] &&
+                    !writes_receiver[call.caller]) {
+                    writes_receiver[call.caller] = true;
+                    changed = true;
+                }
+            }
+        } while (changed);
+        for (const method_call &call : method_calls) {
+            if (!writes_receiver[call.method])
+                continue;
+            if (!call.location || call.immutable)
+                fail("SEM012", call.source, "writing method requires a mutable receiver");
+            if (call.state)
+                fail("SEM017", call.source, "ordinary method cannot modify state storage");
+        }
     }
 
     void visit(const program &) override {
@@ -285,14 +307,14 @@ class checker final : public visitor {
         }
     }
     void visit(const identifier &node) override {
-        if (const binding *symbol = lookup(node.lexeme)) {
+        if (const binding *symbol = symbols.lookup_variable(node.lexeme)) {
             if (in_invariant && !symbol->state)
                 fail("SEM020", node.source, "invariants may read only state variables");
             result = expr_result{symbol->type, true, symbol->state, symbol->immutable};
-        } else if (const auto it = functions.find(node.lexeme); it != functions.end()) {
+        } else if (const auto fn = symbols.lookup_function(node.lexeme)) {
             if (in_invariant)
                 fail("SEM020", node.source, "invariants cannot reference functions");
-            result = expr_result{value_type{}, false, false, false, it->second};
+            result = expr_result{value_type{}, false, false, false, *fn};
         } else
             fail("SEM001", node.source, "unknown name '" + node.lexeme + "'");
     }
@@ -324,7 +346,8 @@ class checker final : public visitor {
             }
             break;
         case unary_op::ADDRESS:
-            if (operand.location && !operand.immutable && !operand.state) {
+            if (operand.location && !operand.immutable && !operand.state &&
+                !operand.receiver_storage) {
                 result = expr_result{value_type::pointer(operand.type)};
                 return;
             }
@@ -423,6 +446,8 @@ class checker final : public visitor {
             (in_reject || (!in_step && !in_update) ||
              (current_function && !in_update && current_function->name->lexeme != "main")))
             fail("SEM017", node.target->source, "state write outside a step or update context");
+        if (target.receiver_storage && current_function)
+            writes_receiver[current_function] = true;
         const expr_result value = evaluate(*node.value, target.type);
         require(target.type, value.type, node.value->source);
         result = expr_result{target.type, false, false, false, nullptr, true};
@@ -442,13 +467,13 @@ class checker final : public visitor {
         result = expr_result{*target};
     }
     void visit(const struct_literal &node) override {
-        const auto it = structs.find(node.struct_type);
-        if (it == structs.end())
+        const struct_decl *structure = symbols.lookup_struct(node.struct_type).value_or(nullptr);
+        if (!structure)
             fail("SEM001", node.source, "unknown struct '" + node.struct_type + "'");
         std::unordered_set<std::string> seen;
         for (const field_init &field : node.init_list) {
             const field_decl *member = nullptr;
-            for (const field_decl &candidate : it->second->fields)
+            for (const field_decl &candidate : structure->fields)
                 if (candidate.name == field.name) {
                     member = &candidate;
                     break;
@@ -474,8 +499,9 @@ class checker final : public visitor {
             fail("SEM020", node.source, "invariants cannot reference this");
         if (!current_struct)
             fail("SEM001", node.source, "this is only valid in a method");
-        // Ordinary methods cannot mutate a receiver that might be state storage.
-        result = expr_result{value_type::named(current_struct->name->lexeme), true, true};
+        result = expr_result{value_type::named(current_struct->name->lexeme), true,
+                             current_function && current_function->kind == function_kind::UPDATE};
+        result->receiver_storage = true;
     }
     void visit(const postfix_expr &node) override {
         if (in_invariant &&
@@ -494,29 +520,28 @@ class checker final : public visitor {
             const bool pointer = object.type.shape == value_type::form::POINTER;
             result = expr_result{*object.type.element, pointer || object.location,
                                  !pointer && object.state, !pointer && object.immutable};
+            result->receiver_storage = !pointer && object.receiver_storage;
             return;
         }
         case postfix_op::MEMBER_ACCESS: {
             if (object.type.shape != value_type::form::STRUCT)
                 fail("SEM004", node.source, "member access requires a struct");
             const std::string &member = std::get<std::string>(node.arg);
-            const auto method_set = methods.find(object.type.name);
-            if (method_set != methods.end()) {
-                const auto method = method_set->second.find(member);
-                if (method != method_set->second.end()) {
-                    result =
-                        expr_result{value_type{},   object.location, object.state, object.immutable,
-                                    method->second, false,           true};
-                    return;
-                }
+            if (const auto method = symbols.lookup_method(object.type.name, member)) {
+                result = expr_result{value_type{}, object.location, object.state, object.immutable,
+                                     *method,      false,           true};
+                result->receiver_storage = object.receiver_storage;
+                return;
             }
-            const auto type = structs.find(object.type.name);
-            if (type == structs.end())
+            const struct_decl *structure =
+                symbols.lookup_struct(object.type.name).value_or(nullptr);
+            if (!structure)
                 fail("SEM001", node.source, "unknown struct type");
-            for (const field_decl &field : type->second->fields)
+            for (const field_decl &field : structure->fields)
                 if (field.name == member) {
                     result = expr_result{resolve(*field.declared_type), object.location,
                                          object.state, object.immutable};
+                    result->receiver_storage = object.receiver_storage;
                     return;
                 }
             fail("SEM001", node.source, "unknown field '" + member + "'");
@@ -531,6 +556,10 @@ class checker final : public visitor {
             if (update && object.receiver &&
                 (!object.location || !object.state || object.immutable))
                 fail("SEM018", node.source, "update method requires a mutable state receiver");
+            if (!update && object.receiver)
+                method_calls.push_back(method_call{fn, current_function, node.source,
+                                                   object.location, object.state, object.immutable,
+                                                   object.receiver_storage});
             if (node.op == postfix_op::UPDATE_CALL && !update)
                 fail("SEM018", node.source, "two argument clauses require an update function");
             if (update && (!in_step && (!current_function ||
@@ -562,7 +591,7 @@ class checker final : public visitor {
         resolved_type = value_type{node.type};
     }
     void visit(const named_type_syntax &node) override {
-        if (!structs.contains(node.name))
+        if (!symbols.lookup_struct(node.name))
             fail("SEM001", node.source, "unknown type '" + node.name + "'");
         resolved_type = value_type::named(node.name);
     }
@@ -591,10 +620,8 @@ class checker final : public visitor {
                 node.name->source);
     }
     void visit(const struct_decl &node) override {
-        if (!global_mode || structs.contains(node.name->lexeme) ||
-            functions.contains(node.name->lexeme) || globals.contains(node.name->lexeme))
+        if (!global_mode || !symbols.declare_struct(node.name->lexeme, &node))
             fail("SEM002", node.source, "duplicate or nested struct");
-        structs.emplace(node.name->lexeme, &node);
         std::unordered_set<std::string> names;
         for (const field_decl &field : node.fields) {
             if (!names.insert(field.name).second)
@@ -603,37 +630,34 @@ class checker final : public visitor {
         }
     }
     void visit(const impl_decl &node) override {
-        const auto it = structs.find(node.type_name->lexeme);
-        if (it == structs.end())
+        const struct_decl *structure =
+            symbols.lookup_struct(node.type_name->lexeme).value_or(nullptr);
+        if (!structure)
             fail("SEM001", node.source, "unknown impl type");
-        auto &table = methods[node.type_name->lexeme];
         for (const function_decl_ptr &method : node.methods)
-            if (!table.emplace(method->name->lexeme, method.get()).second)
+            if (!symbols.declare_method(node.type_name->lexeme, method->name->lexeme, method.get()))
                 fail("SEM002", method->source, "duplicate method");
         const struct_decl *prior = current_struct;
-        current_struct = it->second;
+        current_struct = structure;
         for (const function_decl_ptr &method : node.methods)
             method->accept(*this);
         current_struct = prior;
     }
     void visit(const function_decl &node) override {
         if (!current_struct) {
-            if (!global_mode || functions.contains(node.name->lexeme) ||
-                globals.contains(node.name->lexeme) || structs.contains(node.name->lexeme))
+            if (!global_mode || !symbols.declare_function(node.name->lexeme, &node))
                 fail("SEM002", node.source, "duplicate function");
-            functions.emplace(node.name->lexeme, &node);
         }
         if (node.name->lexeme == "main") {
             if (current_struct || node.kind != function_kind::ORDINARY ||
                 !node.ordinary_parameters.empty() || ++main_count != 1)
                 fail("SEM002", node.source, "invalid main function");
         }
-        const auto saved = locals;
+        auto function_scope = symbols.enter_scope();
         const function_decl *prior = current_function;
         const bool prior_global_mode = global_mode;
         current_function = &node;
         global_mode = false;
-        locals.clear();
         for (const parameter &param : node.state_parameters)
             declare(param.name, binding{resolve(*param.declared_type), true}, node.source);
         for (const parameter &param : node.ordinary_parameters)
@@ -646,7 +670,6 @@ class checker final : public visitor {
                 !guarantees_return(*node.body))
                 fail("SEM008", node.source, "function has a path without a return value");
         }
-        locals = saved;
         current_function = prior;
         global_mode = prior_global_mode;
     }
@@ -658,10 +681,9 @@ class checker final : public visitor {
         in_invariant = false;
     }
     void visit(const block_stmt &node) override {
-        const auto saved = locals;
+        auto block_scope = symbols.enter_scope();
         for (const stmt_ptr &stmt : node.statements)
             stmt->accept(*this);
-        locals = saved;
     }
     void visit(const decl_stmt &node) override {
         node.declaration->accept(*this);
@@ -700,13 +722,12 @@ class checker final : public visitor {
         node.body->accept(*this);
     }
     void visit(const for_stmt &node) override {
-        const auto saved = locals;
+        auto loop_scope = symbols.enter_scope();
         node.initializer->accept(*this);
         if (!truthy(evaluate(*node.condition).type))
             fail("SEM004", node.condition->source, "condition must be bool or numeric");
         evaluate(*node.increment);
         node.body->accept(*this);
-        locals = saved;
     }
     void visit(const step_stmt &node) override {
         if (in_step || in_reject ||
@@ -724,6 +745,6 @@ class checker final : public visitor {
 };
 } // namespace
 
-void analyse(const ast_root &root) {
+void analyse(const program &root) {
     checker{}.run(root);
 }

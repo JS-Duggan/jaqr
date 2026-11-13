@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ast_root.h"
 #include "declaration.h"
 #include "expression.h"
 #include "expression_base.h"
@@ -12,9 +11,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-// ---- Root ----
-ast_root_ptr make_ast_root(std::vector<decl_ptr> decls = {});
 
 // ---- Expressions ----
 

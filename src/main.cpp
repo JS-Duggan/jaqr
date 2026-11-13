@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
             data.emplace_back(line.begin(), line.end());
             data.back().push_back('\n');
         }
-        ast_root_ptr root = parse(tokenise(data));
+        program_ptr root = parse(tokenise(data));
         analyse(*root);
     } catch (const std::exception &error) {
         std::cerr << "Error: " << error.what() << '\n';
