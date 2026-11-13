@@ -9,6 +9,9 @@ build: configure
 run: build
     ./build/debug/jaqr
 
+test: build
+    ctest --test-dir build/debug --output-on-failure
+
 release:
     cmake --preset release
     cmake --build --preset release
