@@ -19,14 +19,15 @@ struct Symbol {
 
     // declared datatype (like int, char, float)
     // for a function it represents the return type
-    // TODO: use enum
+    // TODO: use enum from Jack's part
     string type;
 
     // byte size of the variable
     int size = 0;
 
     // stores array dimensions of symbol
-    int dimensions;
+    // [3, 4] for a 3x4 array
+    std::vector<int> dimensions;
 
     // line where the symbol was originally declared
     int declarationLine = 0;

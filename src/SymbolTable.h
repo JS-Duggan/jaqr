@@ -3,6 +3,8 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <utility>
 
 #include "Scope.h"
 #include "Symbol.h"
@@ -12,8 +14,8 @@
 class SymbolTable {
   private:
     // root of the scope tree, represents global scope
-    // TODO: std::shrared
-    Scope *root;
+     // owns the root of the entire scope tree
+    std::unique_ptr<Scope> root;
 
     // points to current scope
     // TODO: std::shared_ptr
@@ -23,24 +25,32 @@ class SymbolTable {
     // SymbolTable constructor
     SymbolTable() {
         // creates the global scope
-        root = new Scope("global");
+         root = std::make_unique<Scope>("global", nullptr, ScopeKind::GLOBAL);
 
         // start with working in global scope
-        currentScope = root;
+        currentScope = root.get();
     }
 
     // create child scope when entering a new block
-    void enterScope(string name) {
+   void enterScope(std::string name,
+                    ScopeKind kind = ScopeKind::BLOCK) {
         // creates a new scope whose parent is the current scope
         // TODO: std::move() for the string
-        Scope *newScope = new Scope(name, currentScope);
+         auto newScope = std::make_unique<Scope>(
+            std::move(name), currentScope, kind
+        );
+
+        // store a non-owning pointer before transferring ownership
+        Scope* newScopePointer = newScope.get();
 
         // add new scope to the current scope's children
-        currentScope->children.push_back(newScope);
+        // current scope now owns the new child scope
+        currentScope->children.push_back(std::move(newScope));
 
+        
         // move into newly created scope, changes where future declarations will be
         // stored
-        currentScope = newScope;
+        currentScope = newScopePointer;
     }
 
     // exiting a scope when a block is finished/closed
@@ -91,11 +101,12 @@ class SymbolTable {
 
         // define keyword means the declaration belongs in the global scope
         if (isGlobal) {
-            destination = root;
+            destination = root.get();
         }
 
         // insert symbol into selected scope
-        destination->symbols[symbol.name] = symbol;
+        // std::move avoids copying the symbol
+        destination->symbols.emplace(symbol.name, std::move(symbol));
 
         return true;
     }
@@ -123,7 +134,7 @@ class SymbolTable {
     }
 
     // lookup a symbol to find where it has been used before (linesUsedIn)
-    bool addLinesUsedIn(string name, int line) {
+    bool addLinesUsedIn(const std::string& name, int line) {
         // find symbol using the current scope and its parents
         Symbol *symbol =
             lookup(name); // use lookup function declared above to find symbol, so then can update
@@ -138,15 +149,13 @@ class SymbolTable {
 
         return true;
     }
+
+    // access global scope when needed
+    Scope* getGlobalScope() const {
+        return root.get();
+    }
 };
 
 // TODO: workout how "this" works with symbol table/semantic analysis
-
-// Things i need to think about for including later/ see if other people are covering them in their
-// parts: destructor to clean up dynamically allocated scopes A way to retrieve the global scope
-// function signature checking using parameter and return types
-// array dimensions and data structure size calculation
-// Memory address assignment during code generation
-// and where should these be implemented...???
 
 #endif
