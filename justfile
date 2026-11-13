@@ -6,9 +6,6 @@ configure:
 build: configure
     cmake --build --preset debug
 
-run: build
-    ./build/debug/jaqr
-
 test: build
     ctest --test-dir build/debug --output-on-failure
 

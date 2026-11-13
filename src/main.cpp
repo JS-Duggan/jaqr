@@ -1,5 +1,6 @@
 #include "code_generator/code_generator.h"
 #include "parser/parser.h"
+#include "run.h"
 #include "semantic/semantic.h"
 #include "tokeniser/tokeniser.h"
 
@@ -12,7 +13,7 @@
 int main(int argc, char *argv[]) {
     try {
         if (argc != 2) {
-            std::cerr << "Usage: jaqr <source.jaqr> > generated.cpp\n";
+            std::cerr << "Usage: jaqr <source.jaqr>\n";
             return 1;
         }
 
@@ -30,9 +31,7 @@ int main(int argc, char *argv[]) {
         }
         auto analysed = analyse(parse(tokenise(data)), argv[1]);
         auto &[root, impls, invs] = analysed;
-        for (const auto &generated : code_generator{impls, invs}.gen_code(*root))
-            if (!generated.empty())
-                std::cout << generated << '\n';
+        return run_generated(code_generator{impls, invs}.gen_code(*root));
     } catch (const semantic_error &error) {
         std::cerr << error.what() << '\n';
         return 1;

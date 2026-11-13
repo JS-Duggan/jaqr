@@ -5,6 +5,7 @@ file(GLOB_RECURSE JAQR_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 add_executable(jaqr ${JAQR_SOURCES})
+target_compile_definitions(jaqr PRIVATE JAQR_RUNTIME_DIR="${CMAKE_CURRENT_SOURCE_DIR}/runtime")
 set_target_properties(jaqr PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
