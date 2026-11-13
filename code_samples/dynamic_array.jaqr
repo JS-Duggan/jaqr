@@ -45,11 +45,21 @@ impl dynamic_array {
         this.data[idx] = val;
         return true;
     }
+
+    fn len(): int {
+        return this.back;
+    }
 };
 
 fn main() {
     let d: dynamic_array;
-    d.init(5);
-    d.set(2, 5);
-    print(d.access(2));
+    d.init(4);
+    for (let x: int = 0; x < 10; x = x + 1) {
+        d.push_back(x);
+    }
+    for (let x: int = 0; x < d.len(); x = x + 1) {
+        print(d.access(x));
+        print(' ');
+    }
+    print('\n');
 }
