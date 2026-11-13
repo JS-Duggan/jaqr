@@ -1,0 +1,98 @@
+(* IDENT is an IDENTIFIER token whose lexeme is not "main".
+   "main" is reserved for the main function and is rejected everywhere else. *)
+
+program
+    = { topLevelDeclaration } EOF ;
+
+topLevelDeclaration
+    = globalVariableDeclaration
+    | functionDeclaration
+    | updateFunctionDeclaration
+    | structDeclaration
+    | implDeclaration
+    | invariantDeclaration ;
+
+
+globalVariableDeclaration
+    = "define" variableDeclaration ";" ;
+
+variableDeclaration
+    = "let" binding [ "=" expression ]
+    | "state" binding "=" expression
+    | "imut" [ "state" ] binding "=" expression ;
+
+binding
+    = IDENT ":" type ;
+
+
+(* types read left to right:
+   [3]int = array of 3 int, [3]->int = array of 3 pointers to int,
+   ->[3]int = pointer to array of 3 int *)
+type
+    = "->" type
+    | arrayDimension type
+    | typeName ;
+
+typeName
+    = primitiveType
+    | IDENT ;
+
+primitiveType
+    = "int"
+    | "float"
+    | "char"
+    | "bool"
+    | "byte" ;
+
+arrayDimension
+    = "[" expression "]" ;
+
+
+(* exactly one main per program (checked in semantic analysis).
+   "main" is an IDENTIFIER token with lexeme "main"; the parser checks the
+   lexeme after "fn", so one token of lookahead still picks the branch. *)
+functionDeclaration
+    = "fn" ( mainSignature | functionSignature ) block ;
+
+mainSignature
+    = "main" "(" ")" ;
+
+functionSignature
+    = IDENT parameterClause ":" type ;
+
+(* the first parameterClause is the state parameters, the second is the non-state parameters *)
+updateFunctionDeclaration
+    = "update" "fn" IDENT
+      parameterClause
+      parameterClause
+      block ;
+
+parameterClause
+    = "(" [ parameterList ] ")" ;
+
+parameterList
+    = binding { "," binding } ;
+
+
+structDeclaration
+    = "struct" IDENT "{" { fieldDeclaration } "}" ";" ;
+
+fieldDeclaration
+    = binding ";" ;
+
+
+implDeclaration
+    = "impl" IDENT "{" { methodDeclaration } "}" ";" ;
+
+methodDeclaration
+    = methodFunctionDeclaration
+    | updateMethodDeclaration ;
+
+(* same as functionDeclaration, but main is not allowed *)
+methodFunctionDeclaration
+    = "fn" functionSignature block ;
+
+(* the parameterClause is the non-state parameters. there is no state parameterClause: the
+   enclosing impl supplies the state, the struct the method is called on *)
+updateMethodDeclaration
+    = "update" "fn" IDENT parameterClause block ;

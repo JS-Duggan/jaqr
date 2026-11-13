@@ -1,0 +1,126 @@
+expression
+    = assignmentExpression ;
+
+
+assignmentExpression
+    = logicalOrExpression [ "=" assignmentExpression ] ;
+
+
+logicalOrExpression
+    = logicalAndExpression
+      { "||" logicalAndExpression } ;
+
+logicalAndExpression
+    = equalityExpression
+      { "&&" equalityExpression } ;
+
+
+equalityExpression
+    = relationalExpression
+      { ( "==" | "!=" ) relationalExpression } ;
+
+(* "<-" directly after an operand is split by the parser into "<" "-", so x<-1 = x < -1 *)
+relationalExpression
+    = bitwiseOrExpression
+      { ( "<" | ">" | "<=" | ">=" ) bitwiseOrExpression } ;
+
+
+(* bitwise operators bind tighter than comparisons, so x & 1 == 0 = (x & 1) == 0 *)
+bitwiseOrExpression
+    = bitwiseXorExpression
+      { "|" bitwiseXorExpression } ;
+
+bitwiseXorExpression
+    = bitwiseAndExpression
+      { "^" bitwiseAndExpression } ;
+
+bitwiseAndExpression
+    = shiftExpression
+      { "&" shiftExpression } ;
+
+
+shiftExpression
+    = additiveExpression
+      { ( "<<" | ">>" ) additiveExpression } ;
+
+
+additiveExpression
+    = multiplicativeExpression
+      { ( "+" | "-" ) multiplicativeExpression } ;
+
+multiplicativeExpression
+    = unaryExpression
+      { ( "*" | "/" | "\" ) unaryExpression } ;
+
+
+(* sign operators bind looser than ~, so -2 ~ 2 = -(2 ~ 2) = -4 *)
+unaryExpression
+    = ( "-" | "!" ) unaryExpression
+    | powerExpression ;
+
+(* right associative: 2 ~ 3 ~ 2 = 2 ~ (3 ~ 2); exponent may be signed: 2 ~ -1 *)
+powerExpression
+    = prefixExpression [ "~" unaryExpression ] ;
+
+(* pointer operators bind tighter than ~, so <-p ~ 2 = (<-p) ~ 2 *)
+prefixExpression
+    = ( "@" | "<-" ) prefixExpression
+    | postfixExpression ;
+
+
+postfixExpression
+    = primaryExpression { postfixSuffix } ;
+
+(* two argument clauses in a row are one update call. as in updateFunctionDeclaration, the first
+   clause is the state arguments and the second is the non-state arguments: f(s)(x).
+   update methods take one clause, so p.m(x) parses as an ordinary call *)
+postfixSuffix
+    = argumentClause
+    | "[" expression "]"
+    | "." IDENT ;
+
+argumentClause
+    = "(" [ argumentList ] ")" ;
+
+argumentList
+    = expression { "," expression } ;
+
+
+primaryExpression
+    = literal
+    | IDENT [ structInitializer ]
+    | "this"
+    | "(" expression ")"
+    | arrayLiteral
+    | conversionExpression
+    | allocationExpression ;
+
+
+literal
+    = INT_LITERAL
+    | BASE_2_LITERAL
+    | BASE_16_LITERAL
+    | FLOAT_LITERAL
+    | CHAR_LITERAL
+    | STRING_LITERAL
+    | BOOL_LITERAL ;   (* "true" / "false" *)
+
+
+arrayLiteral
+    = "[" [ argumentList ] "]" ;
+
+structInitializer
+    = "{" [ fieldInitializerList ] "}" ;
+
+fieldInitializerList
+    = fieldInitializer { "," fieldInitializer } ;
+
+fieldInitializer
+    = IDENT ":" expression ;
+
+
+conversionExpression
+    = primitiveType "(" expression ")" ;
+
+allocationExpression
+    = "new" "(" type "," expression ")" ;

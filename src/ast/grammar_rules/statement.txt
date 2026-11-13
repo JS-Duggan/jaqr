@@ -1,0 +1,48 @@
+block
+    = "{" { statement } "}" ;
+
+statement
+    = variableDeclaration ";"
+    | expressionStatement
+    | returnStatement
+    | ifStatement
+    | whileStatement
+    | forStatement
+    | stepStatement
+    | invariantDeclaration
+    | block ;
+
+
+(* print and scan are standard library functions, called like any other function: print(x); *)
+expressionStatement
+    = expression ";" ;
+
+(* the value is optional, so main and update functions can return early: return; *)
+returnStatement
+    = "return" [ expression ] ";" ;
+
+
+ifStatement
+    = "if" "(" expression ")" block
+      { "elif" "(" expression ")" block }
+      [ "else" block ] ;
+
+whileStatement
+    = "while" "(" expression ")" block ;
+
+forStatement
+    = "for" "("
+        forInitializer ";"
+        expression ";"
+        expression
+      ")" block ;
+
+forInitializer
+    = "let" binding "=" expression ;
+
+
+stepStatement
+    = "step" block [ "reject" block ] ;
+
+invariantDeclaration
+    = "inv" "{" expression "}" ";" ;
