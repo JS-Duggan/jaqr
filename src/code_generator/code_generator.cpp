@@ -1,9 +1,11 @@
 #include "code_generator.h"
 
+#include <algorithm>
 #include <format>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <variant>
 
 namespace {
@@ -49,7 +51,51 @@ std::string quoted_literal(std::string_view value, char quote) {
 
 } // namespace
 
+const code_generator::state_binding *code_generator::find_binding(const std::string &name) const {
+    for (auto scope = scopes.rbegin(); scope != scopes.rend(); ++scope) {
+        if (const auto found = scope->find(name); found != scope->end())
+            return &found->second;
+    }
+    return nullptr;
+}
+
+std::string code_generator::state_value(const void *identity, const std::string &name) const {
+    for (auto values = step_values.rbegin(); values != step_values.rend(); ++values) {
+        if (const auto found = values->find(identity); found != values->end())
+            return found->second;
+    }
+    return name;
+}
+
+bool code_generator::can_copy_state(const type_syntax &type) const {
+    std::unordered_set<std::string> visiting;
+    const auto check = [&](const auto &self, const type_syntax &candidate) -> bool {
+        if (const auto *primitive = dynamic_cast<const primitive_type_syntax *>(&candidate))
+            return primitive->type != primitive_type::VOID;
+        if (const auto *array = dynamic_cast<const array_type_syntax *>(&candidate))
+            return self(self, *array->element);
+        if (const auto *named = dynamic_cast<const named_type_syntax *>(&candidate)) {
+            const auto declaration = structs.find(named->name);
+            if (declaration == structs.end() || !visiting.insert(named->name).second)
+                return false;
+            const bool copyable =
+                std::all_of(declaration->second->fields.begin(), declaration->second->fields.end(),
+                            [&](const auto &field) { return self(self, *field.declared_type); });
+            visiting.erase(named->name);
+            return copyable;
+        }
+        // A pointer copy would still allow writes to the original pointee.
+        return false;
+    };
+    return check(check, type);
+}
+
 void code_generator::visit(const program &node) {
+    scopes.emplace_back();
+    for (const auto &declaration : node.declarations) {
+        if (const auto *record = dynamic_cast<const struct_decl *>(declaration.get()))
+            structs.emplace(record->name->lexeme, record);
+    }
     for (const auto &declr : node.declarations) {
         declr->accept(*this);
 
@@ -58,6 +104,7 @@ void code_generator::visit(const program &node) {
             loc.emplace_back();
         }
     }
+    scopes.pop_back();
 }
 
 // Expressions:
@@ -188,6 +235,8 @@ void code_generator::visit(const postfix_expr &node) {
             if (!first)
                 loc.back() += ',';
             first = false;
+            // Identifier emission selects the enclosing step's working copy.
+            // Validation belongs to that step, not to an individual update.
             a->accept(*this);
         }
         loc.back() += ')';
@@ -217,7 +266,8 @@ void code_generator::visit(const literal &node) {
 }
 
 void code_generator::visit(const identifier &node) {
-    loc.back() += node.lexeme;
+    const auto *binding = find_binding(node.lexeme);
+    loc.back() += binding ? state_value(binding->identity, node.lexeme) : node.lexeme;
 }
 
 void code_generator::visit(const assignment_expr &node) {
@@ -275,6 +325,8 @@ void code_generator::visit(const this_expr &node) {
 
 // Statements
 void code_generator::visit(const block_stmt &node) {
+    scopes.emplace_back();
+    const auto invariant_count = active_invariants.size();
     loc.back() += '{';
     const auto body_start = loc.size();
     loc.emplace_back();
@@ -288,6 +340,8 @@ void code_generator::visit(const block_stmt &node) {
     }
     loc.back() += '}';
     loc.emplace_back();
+    active_invariants.resize(invariant_count);
+    scopes.pop_back();
 }
 
 void code_generator::visit(const expr_stmt &node) {
@@ -298,11 +352,15 @@ void code_generator::visit(const expr_stmt &node) {
 
 void code_generator::visit(const decl_stmt &node) {
     node.declaration->accept(*this);
+    if (dynamic_cast<const invariant_decl *>(node.declaration.get()))
+        return; // The invariant visitor emits its own terminator and fresh line.
     loc.back() += ';';
     loc.emplace_back();
 }
 
 void code_generator::visit(const return_stmt &node) {
+    if (!step_values.empty())
+        throw std::invalid_argument("A return inside a step would bypass invariant validation");
     loc.back() += "return";
     if (node.value) {
         loc.back() += ' ';
@@ -335,6 +393,7 @@ void code_generator::visit(const while_stmt &node) {
 }
 
 void code_generator::visit(const for_stmt &node) {
+    scopes.emplace_back();
     loc.back() += "for (";
     if (node.initializer)
         node.initializer->accept(*this);
@@ -346,10 +405,117 @@ void code_generator::visit(const for_stmt &node) {
         node.increment->accept(*this);
     loc.back() += ") ";
     node.body->accept(*this);
+    scopes.pop_back();
 }
 
 void code_generator::visit(const step_stmt &node) {
-    // leaving for now, will come back later
+    if (!step_values.empty() || in_update_function)
+        throw std::invalid_argument("Steps cannot be nested or declared inside update functions");
+
+    // Copy visible state once, so every update in this step shares the same values.
+    // Sorting keeps generated names stable despite unordered scope maps.
+    std::vector<std::string> names;
+    std::unordered_set<std::string> seen;
+    for (auto scope = scopes.rbegin(); scope != scopes.rend(); ++scope) {
+        for (const auto &[name, binding] : *scope) {
+            if (seen.insert(name).second && binding.state)
+                names.push_back(name);
+        }
+    }
+    std::sort(names.begin(), names.end());
+
+    const auto prefix = "jaqr_generated_step_" + std::to_string(next_step++) + "_";
+    std::unordered_map<const void *, std::string> values;
+    std::vector<std::pair<std::string, std::string>> commits;
+    loc.back() += '{';
+    const auto start = loc.size();
+    loc.emplace_back("bool " + prefix + "accepted = false;");
+    loc.emplace_back("{");
+    const auto body_start = loc.size();
+    loc.emplace_back();
+
+    for (const auto &name : names) {
+        const auto &binding = *find_binding(name);
+        const auto suffix = std::to_string(values.size());
+        const auto target = std::format("{}target_{}", prefix, suffix);
+        loc.back() += std::format("auto &{} = {};", target, name);
+        loc.emplace_back();
+        if (binding.immutable) {
+            values.emplace(binding.identity, target);
+            continue;
+        }
+        if (!binding.type || !can_copy_state(*binding.type))
+            throw std::invalid_argument("Step state must have a value type without pointers: " +
+                                        name);
+        const auto copy = std::format("{}value_{}", prefix, suffix);
+        loc.back() += std::format("auto {} = {};", copy, target);
+        loc.emplace_back("static_assert(std::is_nothrow_copy_assignable_v<decltype(" + copy +
+                         ")>);");
+        loc.emplace_back();
+        values.emplace(binding.identity, copy);
+        commits.emplace_back(target, copy);
+    }
+
+    step_values.push_back(std::move(values));
+    scopes.emplace_back();
+    step_scope_depth = scopes.size();
+    const auto invariant_count = active_invariants.size();
+    for (const auto &statement : node.body->statements)
+        statement->accept(*this);
+
+    loc.back() += prefix + "accepted = true;";
+    loc.emplace_back();
+    for (const auto *invariant : active_invariants) {
+        loc.back() += prefix + "accepted = " + invariant_names.at(invariant) + "(";
+        bool first = true;
+        for (const auto *input : invariant->state_vars) {
+            if (!first)
+                loc.back() += ", ";
+            first = false;
+            const auto value = step_values.back().find(input);
+            if (value != step_values.back().end()) {
+                loc.back() += value->second;
+            } else {
+                const auto *binding = find_binding(input->name->lexeme);
+                if (!binding || binding->identity != input)
+                    throw std::invalid_argument("Invariant input is hidden or out of scope: " +
+                                                input->name->lexeme);
+                loc.back() += input->name->lexeme;
+            }
+        }
+        // Put the call first: evaluate every invariant even after one has failed.
+        loc.back() += ") && " + prefix + "accepted;";
+        loc.emplace_back();
+    }
+    loc.back() += "if (" + prefix + "accepted) {";
+    loc.emplace_back();
+    for (const auto &[target, copy] : commits) {
+        loc.back() += std::format("    {} = {};", target, copy);
+        loc.emplace_back();
+    }
+    loc.back() += '}';
+    loc.emplace_back();
+    for (auto i = body_start; i < loc.size(); ++i) {
+        if (!loc[i].empty())
+            loc[i].insert(0, 4, ' ');
+    }
+    loc.back() += '}';
+    loc.emplace_back();
+
+    active_invariants.resize(invariant_count);
+    scopes.pop_back();
+    step_values.pop_back();
+    step_scope_depth = 0;
+    if (node.reject_body) {
+        loc.back() += "if (!" + prefix + "accepted) ";
+        node.reject_body->accept(*this);
+    }
+    for (auto i = start; i < loc.size(); ++i) {
+        if (!loc[i].empty())
+            loc[i].insert(0, 4, ' ');
+    }
+    loc.back() += '}';
+    loc.emplace_back();
 }
 
 // Declarations
@@ -363,9 +529,16 @@ void code_generator::visit(const variable_decl &node) {
         loc.back() += " = ";
         node.initializer->accept(*this);
     }
+    if (!scopes.empty())
+        scopes.back().insert_or_assign(node.name->lexeme,
+                                       state_binding{&node, node.declared_type.get(),
+                                                     node.storage == variable_storage::STATE,
+                                                     node.immutable});
 }
 
 void code_generator::visit(const function_decl &node) {
+    in_update_function = node.kind == function_kind::UPDATE;
+    scopes.emplace_back();
     if (node.name->lexeme == "main") {
         loc.back() += "int";
     } else if (node.kind == function_kind::UPDATE) {
@@ -387,6 +560,8 @@ void code_generator::visit(const function_decl &node) {
 
         param.declared_type->accept(*this);
         loc.back() += " " + param.name;
+        scopes.back().emplace(param.name,
+                              state_binding{&param, param.declared_type.get(), false, false});
     }
 
     for (const auto &param : node.state_parameters) {
@@ -397,10 +572,14 @@ void code_generator::visit(const function_decl &node) {
 
         param.declared_type->accept(*this);
         loc.back() += " &" + param.name;
+        scopes.back().emplace(param.name,
+                              state_binding{&param, param.declared_type.get(), true, false});
     }
 
     loc.back() += ") ";
     node.body->accept(*this);
+    scopes.pop_back();
+    in_update_function = false;
 }
 
 void code_generator::visit(const struct_decl &node) {
@@ -456,7 +635,38 @@ void code_generator::visit(const impl_decl &node) {
 }
 
 void code_generator::visit(const invariant_decl &node) {
-    // to do
+    if (!step_values.empty() && scopes.size() != step_scope_depth)
+        throw std::invalid_argument(
+            "An invariant inside a step must be declared directly in its body");
+    const auto entry = invariant_names
+                           .try_emplace(&node, "jaqr_generated_invariant_" +
+                                                   std::to_string(invariant_names.size()))
+                           .first;
+    loc.back() += "const auto " + entry->second + " = [](";
+
+    bool first = true;
+    for (const auto *input : node.state_vars) {
+        if (!first)
+            loc.back() += ", ";
+        first = false;
+
+        input->declared_type->accept(*this);
+        loc.back() += " const &" + input->name->lexeme;
+    }
+
+    loc.back() += ") -> bool {";
+    loc.emplace_back("    return ");
+    // These identifiers refer to the lambda's parameters, not step temporaries.
+    scopes.emplace_back();
+    for (const auto *input : node.state_vars)
+        scopes.back().emplace(input->name->lexeme,
+                              state_binding{nullptr, input->declared_type.get(), false, true});
+    node.condition->accept(*this);
+    scopes.pop_back();
+    loc.back() += ';';
+    loc.emplace_back("};");
+    loc.emplace_back();
+    active_invariants.push_back(&node);
 }
 
 // Type syntax
@@ -502,10 +712,19 @@ void code_generator::visit(const array_type_syntax &node) {
 
 std::vector<std::string> code_generator::gen_code(const program &node) {
     loc.clear();
+    invariant_names.clear();
+    scopes.clear();
+    step_values.clear();
+    active_invariants.clear();
+    structs.clear();
+    next_step = 0;
+    step_scope_depth = 0;
+    in_update_function = false;
     loc.emplace_back("#include <cstdint>");
     loc.emplace_back("#include <cstddef>");
     loc.emplace_back("#include <cmath>");
     loc.emplace_back("#include <array>");
+    loc.emplace_back("#include <type_traits>");
     loc.emplace_back();
 
     visit(node);
