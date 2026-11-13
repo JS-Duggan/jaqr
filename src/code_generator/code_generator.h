@@ -7,10 +7,21 @@
 #include "../visitor/visitor.h"
 
 #include <string>
+#include <unordered_map>
+
+using struct_impls_t = std::unordered_map<std::string, std::vector<const function_decl *>>;
+using state_invs_t = std::unordered_map<std::string, std::vector<const invariant_decl *>>;
 
 class code_generator : visitor {
-  public:
+
     std::vector<std::string> loc;
+    struct_impls_t impls; // struct name to decl
+    state_invs_t invs;    // state name to invs
+
+  public:
+    code_generator(struct_impls_t &imp, state_invs_t &inv) : impls(imp), invs(inv) {
+    }
+
     std::vector<std::string> gen_code(const program &node);
 
     void visit(const program &node) override;

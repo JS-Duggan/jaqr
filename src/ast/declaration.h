@@ -110,6 +110,7 @@ struct impl_decl : decl {
 
     identifier_ptr type_name;
     std::vector<function_decl_ptr> methods;
+    std::vector<const variable_decl *> state_vars;
 
     impl_decl(identifier_ptr n, std::vector<function_decl_ptr> m)
         : type_name(std::move(n)), methods(std::move(m)) {

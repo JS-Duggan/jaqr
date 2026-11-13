@@ -412,10 +412,41 @@ void code_generator::visit(const struct_decl &node) {
         loc.back() += " " + field.name + ";";
         loc.emplace_back();
     }
-    loc.back() += "};";
-    loc.emplace_back();
 
     // function declarations (no body) to go here:
+    const auto &fn_impls = impls[node.name->lexeme];
+    for (const auto &fn : fn_impls) {
+        if (fn->kind == function_kind::UPDATE)
+            loc.back() += "void";
+        else
+            fn->return_type->accept(*this);
+
+        loc.back() += " " + fn->name->lexeme + "(";
+
+        bool first = true;
+        for (const auto &param : fn->ordinary_parameters) {
+            if (!first)
+                loc.back() += ", ";
+            first = false;
+
+            param.declared_type->accept(*this);
+            loc.back() += " " + param.name;
+        }
+
+        for (const auto &param : fn->state_parameters) {
+            if (!first)
+                loc.back() += ", ";
+            first = false;
+
+            param.declared_type->accept(*this);
+            loc.back() += " &" + param.name;
+        }
+
+        loc.back() += ");";
+        loc.emplace_back();
+    }
+    loc.back() += "};";
+    loc.emplace_back();
 }
 
 void code_generator::visit(const impl_decl &node) {
