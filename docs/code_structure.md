@@ -52,7 +52,7 @@ jaqr/
 ├── .github/workflows/checks.yml   CI: format-check + clang-tidy on pull requests
 ├── runtime/jaqr/runtime/io.h      runtime header included by generated C++
 ├── docs/                   this documentation
-├── tests/                  unit, integration and generated-code tests
+├── tests/                  unit, integration, generated-code and end-to-end (`tests/e2e/`) tests
 └── src/
     ├── main.cpp            command-line driver
     ├── tokens/             token type enum + token struct
@@ -194,9 +194,52 @@ See [`io.md`](io.md).
 | `tests/ast_dump.*`, `tests/test_helpers.h` | Helpers | S-expression AST printer and token builders |
 | `tests/optimizer.cpp` + `optimizer_test.py` | CTest | Generates C++ with and without optimisation, compiles at `-O0`/`-O2`, compares behaviour |
 | `tests/io.cpp` + `io_test.py` | CTest | Generated I/O with piped input, EOF, failures, shadowing, rejected contexts |
+| `tests/e2e/run_e2e.py` + `tests/e2e/cases/` | Python | Whole `.jaqr` programs through the real `jaqr` binary: output, compile success, rejection codes |
 
 The GoogleTest suites are configured in `tests/CMakeLists.txt`, which fetches
 GoogleTest 1.15.2 and builds the front end as a static library `jaqr_front_end`.
+
+### 4.1 End-to-end tests
+
+These run real `.jaqr` files through the `jaqr` executable, so they test the whole
+pipeline: tokeniser, parser, semantic analysis, optimiser, code generation and the
+runtime.
+
+Run them after building:
+
+```sh
+just build
+python tests/e2e/run_e2e.py                    # all cases, C++ built at -O0
+python tests/e2e/run_e2e.py --opt-levels O0 O2 # also build the C++ at -O2
+python tests/e2e/run_e2e.py -k step            # only cases with "step" in the name
+python tests/e2e/run_e2e.py --cxx clang++      # pick the C++ compiler (default: $CXX, then c++)
+```
+
+The runner prints `ok` or `FAIL` per case, then the details of each failure, and
+exits non-zero if anything failed. It uses `build/debug/jaqr` unless `--jaqr` says
+otherwise.
+
+There are two kinds of case:
+
+| Folder | Contract | Files |
+|---|---|---|
+| `cases/run/` | `jaqr` accepts the program, the C++ compiles, and the program prints exactly the expected output | `name.jaqr`, `name.out` (expected stdout), optional `name.in` (stdin) |
+| `cases/reject/` | `jaqr` exits with an error, does not crash, emits no C++, and reports the expected code | `name.jaqr` whose first line is `# expect: SEM017` (any `LEX`, `SYN` or `SEM` code) |
+
+The run cases cover every core feature: I/O (including bad input and EOF), every
+operator and literal form, casts, control flow, functions, recursion, arrays,
+pointers, structs and methods, globals, steps (commit, rollback, atomicity across
+several state variables, arrays and struct state), C++ name collisions and
+optimiser rewrites. The reject cases cover each diagnostic in
+[`semantic_spec.md`](semantic_spec.md#suggested-diagnostic-catalogue).
+
+To add a case, drop the files into the right folder. No registration is needed.
+
+**Backends.** Today `jaqr` prints C++, so the default `transpile` backend compiles
+that C++ itself and runs the binary. When `jaqr` gains the ability to compile and
+run programs on its own, switch with `--backend native` (plus any flag the driver
+needs, for example `--jaqr-arg=--run`). The runner then treats `jaqr`'s stdout as
+the program's output. The case files stay the same.
 
 ## 5. Build system
 

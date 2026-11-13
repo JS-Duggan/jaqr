@@ -177,9 +177,34 @@ fn square(x: int): int {
 
 - Ordinary functions declare a return type after `:`.
 - `fn main()` takes no parameters, has no return type, and is required exactly once.
-- A function must be defined before it is called. Direct recursion is allowed.
+- A function must be defined before it is called.
 - No overloading: every function name is unique.
 - Every path of a non-void function must return (`SEM008`).
+
+### 6.1 Recursion
+
+A function is visible from the start of its own definition, so it can call itself.
+Methods can recurse through `this`.
+
+```text
+fn fib(n: int): int {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+- Works for linear (`factorial`), tree (`fib`, Towers of Hanoi) and tail-style
+  (`gcd`) recursion, with array, pointer and struct parameters.
+- Each call gets its own locals. Array parameters are copies, so a recursive call
+  never changes the caller's array. Pass a pointer to share state between calls.
+- Recursion depth is limited only by the C++ stack. The end-to-end tests recurse
+  10 000 levels deep.
+- Mutual recursion is not possible: the second function is not yet defined when
+  the first one calls it.
+
+Tested end to end in `tests/e2e/cases/run/recursion.jaqr`.
 
 ## 7. The Step system
 
@@ -294,4 +319,4 @@ let x: int = 1;   # trailing comment
 | Static checking | Types, scopes, return paths, immutability, pointer and state rules checked before any code is generated |
 | C++20 output | Generated code is plain C++ and compiles with any C++20 compiler |
 | Optimiser | Constant folding, dead-code removal, constant-branch simplification, small loop unrolling; never changes step semantics. See [`optimisation.md`](optimisation.md) |
-| Tested | Unit, integration and generated-code tests (`just test`) |
+| Tested | Unit, integration and generated-code tests (`just test`), plus end-to-end program tests (`python tests/e2e/run_e2e.py`, see [`code_structure.md`](code_structure.md#41-end-to-end-tests)) |

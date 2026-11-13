@@ -280,7 +280,7 @@ Pointers cannot reference state storage. The semantic rules must not permit indi
 
 A function must be defined before it can be called.
 
-Direct recursion is permitted. A function becomes visible at the beginning of its definition.
+Direct recursion is permitted. A function becomes visible at the beginning of its definition. Methods may call themselves through `this`. Mutual recursion is impossible, because the second function is not visible inside the first.
 
 Function overloading is prohibited. Each function name must be unique regardless of parameter types or return type.
 
